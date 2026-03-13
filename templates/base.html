@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FINY</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <style>
+    .badge { padding: 0.2rem 0.5rem; border-radius: 999px; font-size: .8rem; }
+    .badge.warn { background:#fee2e2; color:#991b1b; }
+    .badge.info { background:#e0f2fe; color:#075985; }
+    .pill {display:inline-block; padding:0.2rem 0.6rem; border-radius:999px; background:#f3f4f6; margin-right:.25rem;}
+  </style>
+</head>
+<body class="container">
+  <header><h2>FINY</h2></header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

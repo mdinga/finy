@@ -1,0 +1,121 @@
+{% load static %}
+<aside class="col-12 col-lg-3">
+  <div class="card sidebar-card">
+    <div class="card-body">
+      <div class="text-uppercase text-muted small fw-semibold mb-2">Menu</div>
+      <ul class="list-group mb-3">
+        <li class="list-group-item">
+          <button id="btnPriority" class="btn btn-link btn-sm text-decoration-none text-reset">Priority</button>
+        </li>
+        <li class="list-group-item d-flex justify-content-between">
+          <button id="btnInbox" class="btn btn-link btn-sm text-decoration-none text-reset">Inbox</button>
+          <span id="inbox-count-badge" class="badge rounded-pill count-badge">0</span>
+        </li>
+        <li class="list-group-item d-flex justify-content-between">
+          <button id="btnCompleted" class="btn btn-link btn-sm text-decoration-none text-reset w-100 text-start">
+            Completed Tasks <span id="completed-count-badge" class="badge rounded-pill count-badge ms-2">0</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="accordion" id="leftAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapseFolders" aria-expanded="false" aria-controls="collapseFolders">
+              Folders
+            </button>
+          </h2>
+          <div id="collapseFolders" class="accordion-collapse collapse" data-bs-parent="#leftAccordion">
+            <div class="accordion-body">
+              <div class="d-flex justify-content-end mb-2">
+                <button id="showAddFolder" class="btn btn-plain btn-sm">Add Folder</button>
+              </div>
+
+              <ul id="folderList" class="list-group mb-2">
+                {% for f in folders %}
+                <li class="list-group-item" data-id="{{ f.id }}">
+                  <button class="btn btn-link btn-sm text-decoration-none text-reset list-title-btn"
+                          onclick="filterByFolder('{{ f.id }}')">{{ f.name }}</button>
+                  <span id="folder-count-{{ f.id }}" class="badge rounded-pill count-badge">{{ f.task_count }}</span>
+                  <div class="row-actions">
+                    <button class="btn btn-plain btn-sm" onclick="startEditFolder('{{ f.id }}')">Edit</button>
+                    <button class="btn btn-plain btn-sm" onclick="deleteFolder('{{ f.id }}')">Delete</button>
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+
+              <div id="addFolderRow" class="d-none">
+                <div class="mb-2">
+                  <input id="newFolderName" class="form-control form-control-sm mb-2" placeholder="Folder name">
+                  <input id="newFolderDesc" class="form-control form-control-sm" placeholder="Description optional">
+                  <div class="hint mt-1">Tip: Use verbs if it is an active folder, for example Plan Kareerand lift.</div>
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                  <button class="btn btn-plain btn-sm" onclick="createFolder('newFolderName','newFolderDesc')">Save</button>
+                  <button class="btn btn-plain btn-sm" onclick="hideInline('addFolderRow')">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#collapseSpaces" aria-expanded="false" aria-controls="collapseSpaces">
+              Spaces
+            </button>
+          </h2>
+          <div id="collapseSpaces" class="accordion-collapse collapse" data-bs-parent="#leftAccordion">
+            <div class="accordion-body">
+              <div class="d-flex justify-content-end mb-2">
+                <button id="showAddSpace" class="btn btn-plain btn-sm">Add Space</button>
+              </div>
+
+              <ul id="spaceList" class="list-group mb-2">
+                {% for s in spaces %}
+                <li class="list-group-item" data-id="{{ s.id }}">
+                  <button class="btn btn-link btn-sm text-decoration-none text-reset list-title-btn"
+                          onclick="filterBySpace('{{ s.id }}')">{{ s.name }}</button>
+                  <span id="space-count-{{ s.id }}" class="badge rounded-pill count-badge">{{ s.task_count }}</span>
+                  <div class="row-actions">
+                    <button class="btn btn-plain btn-sm" onclick="startEditSpace('{{ s.id }}')">Edit</button>
+                    <button class="btn btn-plain btn-sm" onclick="deleteSpace('{{ s.id }}')">Delete</button>
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+
+              <div id="addSpaceRow" class="d-none">
+                <div class="mb-2">
+                  <input id="newSpaceName" class="form-control form-control-sm mb-2" placeholder="Space name">
+                  <select id="newSpaceCategory" class="form-select form-select-sm"></select>
+                  <div class="hint mt-1">Hint: A category helps you filter across many spaces later.</div>
+                </div>
+                <div class="d-flex gap-2 mb-2">
+                  <button class="btn btn-plain btn-sm" onclick="createSpace('newSpaceName','newSpaceCategory')">Save</button>
+                  <button class="btn btn-plain btn-sm" onclick="hideInline('addSpaceRow')">Cancel</button>
+                </div>
+                <div id="spaceCreateError" class="text-danger small d-none"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ul class="list-group mt-3 mb-3">
+        <li class="list-group-item">
+          <button id="btnCalendar" class="btn btn-link btn-sm text-decoration-none text-reset">Calendar</button>
+        </li>
+      </ul>
+
+      <ul class="list-group">
+        <li class="list-group-item">
+          <button id="btnSettings" class="btn btn-link btn-sm text-decoration-none text-reset">Settings</button>
+        </li>
+      </ul>
+    </div>
+  </div>
+</aside>

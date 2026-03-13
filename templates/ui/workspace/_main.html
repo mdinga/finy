@@ -1,0 +1,46 @@
+{% load static %}
+<section class="col-12 col-lg-9">
+  <div id="list-view">
+    <form id="new-task-form" class="d-flex gap-2 mb-2">
+      <input id="nt-title" type="text" class="form-control" placeholder="Add a new task..." required>
+      <button class="btn btn-plain" type="submit">Add</button>
+    </form>
+
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <h2 id="list-title" class="h6 m-0">Inbox</h2>
+    </div>
+
+    <div class="hint mb-3">Tip: Keep the title short. Add dates and time under Details.</div>
+
+    <div id="task-list"></div>
+  </div>
+
+  <div id="calendar-view" class="d-none">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="d-flex align-items-center gap-2">
+        <button id="calPrev" class="btn btn-plain btn-sm" type="button">‹</button>
+        <h2 id="calendar-title" class="h6 m-0">Calendar</h2>
+        <button id="calNext" class="btn btn-plain btn-sm" type="button">›</button>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <span class="hint m-0">Planned dates only</span>
+        <button id="calBackToList" class="btn btn-plain btn-sm" type="button">Back</button>
+      </div>
+    </div>
+
+    <div id="calendar-list" class="calendar-list"></div>
+  </div>
+
+  <div class="modal fade" id="taskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="taskModalTitle">Task</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="taskModalBody"></div>
+      </div>
+    </div>
+  </div>
+</section>

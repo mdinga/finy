@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FINY — Focus. Finish. Feel good.</title>
+  <style>
+    :root {
+      --primary:#2563EB; --accent:#F59E0B; --fg:#0F172A; --muted:#64748B; --bg:#FFFFFF;
+    }
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;}
+    .nav{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #e5e7eb;}
+    .logo{font-weight:700;letter-spacing:.5px}
+    .cta a{margin-left:12px;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid #e5e7eb;color:var(--fg)}
+    .cta a.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .hero{max-width:980px;margin:64px auto;padding:0 24px;text-align:center}
+    h1{font-size:42px;line-height:1.1;margin:0 0 12px}
+    p.lead{color:var(--muted);font-size:18px;margin:0 auto 24px;max-width:720px}
+    .pill{display:inline-block;background:#EEF2FF;color:#1E3A8A;border-radius:999px;padding:8px 14px;font-size:13px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:32px}
+    .card{border:1px solid #e5e7eb;border-radius:14px;padding:16px;text-align:left}
+    footer{padding:32px;text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="logo">FINY</div>
+    <div class="cta">
+      <a href="{% url 'workspace' %}">Open workspace</a>
+    </div>
+
+  </nav>
+
+  <section class="hero">
+    <span class="pill">Minimal. Fast. DRF-powered.</span>
+    <h1>Focus on what matters. Finish more.</h1>
+    <p class="lead">FINY is a calm productivity workspace with smart filters, spaces, and a powerful calendar. Built to feel light and help you move.</p>
+    <div class="grid">
+      <div class="card"><strong>Priority Tasks</strong><br><span class="muted">See overdue & today at a glance.</span></div>
+      <div class="card"><strong>Spaces & Folders</strong><br><span class="muted">Organize by context and projects.</span></div>
+      <div class="card"><strong>Calendar</strong><br><span class="muted">Plan by day with time estimates.</span></div>
+      <div class="card"><strong>Search & Filters</strong><br><span class="muted">Wildcard search + multi-filter.</span></div>
+    </div>
+  </section>
+
+  <footer>© <span id="y"></span> FINY</footer>
+  <script>document.getElementById('y').textContent=new Date().getFullYear()</script>
+</body>
+</html>

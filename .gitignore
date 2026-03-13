@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+*.log
+db.sqlite3
+media/
+
+# Environment
+.env
+venv/
+env/
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Migrations cache
+*.pyc
+
+# Static collected files
+staticfiles/
