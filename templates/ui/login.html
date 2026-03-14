@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="finy-auth-section">
+  <div class="finy-auth-container">
+    <div class="finy-auth-card">
+
+      <h1 class="finy-auth-title">Log in to Finy</h1>
+      <p class="finy-auth-subtitle">
+        Continue managing your responsibilities with clarity.
+      </p>
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="finy-auth-message">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" class="finy-auth-form">
+        {% csrf_token %}
+
+        <div class="finy-form-group">
+          <label for="id_email">Email</label>
+          <input type="email" name="email" id="id_email" required autocomplete="email">
+        </div>
+
+        <div class="finy-form-group">
+          <label for="id_password">Password</label>
+          <input type="password" name="password" id="id_password" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="finy-auth-button">Log In</button>
+      </form>
+
+    </div>
+  </div>
+</section>
+{% endblock %}

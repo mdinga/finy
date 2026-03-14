@@ -70,3 +70,20 @@ class AttachmentForm(forms.ModelForm):
         widgets = {
             "image": forms.ClearableFileInput(attrs={"accept": "image/*"})
         }
+
+from django import forms
+
+
+class EmailLoginForm(forms.Form):
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            "placeholder": "Enter your email",
+            "autocomplete": "email",
+        })
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            "placeholder": "Enter your password",
+            "autocomplete": "current-password",
+        })
+    )

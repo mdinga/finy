@@ -5,14 +5,16 @@ from .views import (
     TaskViewSet, TimeLogViewSet, CalendarSummaryView,
 )
 
+app_name = "api"
+
 router = DefaultRouter()
-router.register(r'folders', FolderViewSet, basename='folder')
-router.register(r'space-categories', SpaceCategoryViewSet, basename='spacecategory')
-router.register(r'spaces', SpaceViewSet, basename='space')
-router.register(r'tasks', TaskViewSet, basename='task')
-router.register(r'timelogs', TimeLogViewSet, basename='timelog')
+router.register(r"folders", FolderViewSet, basename="folder")
+router.register(r"space-categories", SpaceCategoryViewSet, basename="spacecategory")
+router.register(r"spaces", SpaceViewSet, basename="space")
+router.register(r"tasks", TaskViewSet, basename="task")
+router.register(r"timelogs", TimeLogViewSet, basename="timelog")
 
 urlpatterns = [
-    path('', include(router.urls)),
-    path('calendar/summary/', CalendarSummaryView.as_view(), name='calendar-summary'),
+    path("", include(router.urls)),
+    path("calendar/summary/", CalendarSummaryView.as_view(), name="calendar-summary"),
 ]

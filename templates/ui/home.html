@@ -1,49 +1,438 @@
+{% load static %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <title>Finy | Stop managing tasks in your head</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FINY — Focus. Finish. Feel good.</title>
-  <style>
-    :root {
-      --primary:#2563EB; --accent:#F59E0B; --fg:#0F172A; --muted:#64748B; --bg:#FFFFFF;
-    }
-    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto;}
-    .nav{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #e5e7eb;}
-    .logo{font-weight:700;letter-spacing:.5px}
-    .cta a{margin-left:12px;padding:10px 14px;border-radius:10px;text-decoration:none;border:1px solid #e5e7eb;color:var(--fg)}
-    .cta a.primary{background:var(--primary);color:#fff;border-color:var(--primary)}
-    .hero{max-width:980px;margin:64px auto;padding:0 24px;text-align:center}
-    h1{font-size:42px;line-height:1.1;margin:0 0 12px}
-    p.lead{color:var(--muted);font-size:18px;margin:0 auto 24px;max-width:720px}
-    .pill{display:inline-block;background:#EEF2FF;color:#1E3A8A;border-radius:999px;padding:8px 14px;font-size:13px;margin-bottom:16px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:32px}
-    .card{border:1px solid #e5e7eb;border-radius:14px;padding:16px;text-align:left}
-    footer{padding:32px;text-align:center;color:var(--muted)}
-  </style>
+  <meta name="description" content="Finy helps busy professionals capture, organise and execute responsibilities across work and life with clarity and focus.">
+  <link rel="stylesheet" href="{% static 'ui/css/workspace.css' %}">
 </head>
-<body>
-  <nav class="nav">
-    <div class="logo">FINY</div>
-    <div class="cta">
-      <a href="{% url 'workspace' %}">Open workspace</a>
+
+<body class="landing-page">
+
+  <header class="landing-navbar">
+    <div class="landing-nav-inner">
+      <div class="landing-brand">
+        <div class="landing-brand-mark"></div>
+        <span>Finy</span>
+      </div>
+
+      <nav class="landing-nav-links">
+        <a href="#problem">Problem</a>
+        <a href="#transformation">Transformation</a>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+      </nav>
+
+      <div class="landing-nav-actions">
+        <a class="landing-btn landing-btn-secondary" href="{% url 'ui:login' %}">Login</a>
+        <a class="landing-btn landing-btn-primary" href="#">Get Started</a>
+      </div>
     </div>
+  </header>
 
-  </nav>
+  <section class="landing-hero landing-hero-v2">
+    <div class="landing-container">
+      <div class="landing-hero-grid">
 
-  <section class="hero">
-    <span class="pill">Minimal. Fast. DRF-powered.</span>
-    <h1>Focus on what matters. Finish more.</h1>
-    <p class="lead">FINY is a calm productivity workspace with smart filters, spaces, and a powerful calendar. Built to feel light and help you move.</p>
-    <div class="grid">
-      <div class="card"><strong>Priority Tasks</strong><br><span class="muted">See overdue & today at a glance.</span></div>
-      <div class="card"><strong>Spaces & Folders</strong><br><span class="muted">Organize by context and projects.</span></div>
-      <div class="card"><strong>Calendar</strong><br><span class="muted">Plan by day with time estimates.</span></div>
-      <div class="card"><strong>Search & Filters</strong><br><span class="muted">Wildcard search + multi-filter.</span></div>
+        <div class="landing-hero-copy">
+          <span class="landing-tag">Responsibility Management System</span>
+
+          <h1>Stop managing tasks in your head</h1>
+
+          <p>
+            Finy helps busy professionals capture, organise and execute responsibilities
+            across work and life without mental overload.
+          </p>
+
+          <div class="landing-hero-actions">
+            <a class="landing-btn landing-btn-primary" href="#">Start Organising Your Life</a>
+            <a class="landing-btn landing-btn-secondary" href="#features">Explore Features</a>
+          </div>
+
+          <p class="landing-hero-note">
+            For professionals juggling meetings, projects, family, admin and personal goals.
+          </p>
+
+          <div class="landing-hero-points">
+            <span class="landing-hero-point">Capture everything</span>
+            <span class="landing-hero-point">Organise by context</span>
+            <span class="landing-hero-point">Focus on the next action</span>
+          </div>
+        </div>
+
+        <div class="landing-hero-visual">
+          <div class="landing-hero-glow"></div>
+
+          <div class="landing-floating-card landing-floating-card-top">
+            <span class="landing-floating-label">Clarity</span>
+            <strong>Today is under control</strong>
+            <small>Tasks, context and priorities in one place</small>
+          </div>
+
+          <div class="landing-floating-card landing-floating-card-bottom">
+            <span class="landing-floating-label">Focus</span>
+            <strong>3 key priorities ready</strong>
+            <small>Know what matters next</small>
+          </div>
+
+          <div class="landing-hero-card landing-hero-app-window landing-hero-app-window-dark">
+            <div class="landing-hero-card-top landing-hero-card-top-dark">
+              <div class="landing-dots">
+                <span class="landing-dot"></span>
+                <span class="landing-dot"></span>
+                <span class="landing-dot"></span>
+              </div>
+              <span class="landing-window-title landing-window-title-dark">Finy Workspace Preview</span>
+            </div>
+
+            <div class="landing-hero-card-body landing-hero-card-body-dark">
+
+              <div class="landing-dark-preview">
+                <div class="landing-dark-sidebar">
+                  <div class="landing-dark-logo"></div>
+                  <div class="landing-dark-nav active"></div>
+                  <div class="landing-dark-nav"></div>
+                  <div class="landing-dark-nav"></div>
+                  <div class="landing-dark-nav"></div>
+                </div>
+
+                <div class="landing-dark-main">
+                  <div class="landing-dark-topbar">
+                    <div>
+                      <div class="landing-dark-title"></div>
+                      <div class="landing-dark-subtitle"></div>
+                    </div>
+                    <div class="landing-dark-btn"></div>
+                  </div>
+
+                  <div class="landing-dark-grid">
+                    <div class="landing-dark-panel landing-dark-panel-large">
+                      <p class="landing-dark-panel-title">Today</p>
+
+                      <div class="landing-dark-task">
+                        <span class="landing-dark-check"></span>
+                        <div class="landing-dark-lines">
+                          <div class="landing-dark-line"></div>
+                          <div class="landing-dark-line short"></div>
+                        </div>
+                      </div>
+
+                      <div class="landing-dark-task">
+                        <span class="landing-dark-check"></span>
+                        <div class="landing-dark-lines">
+                          <div class="landing-dark-line"></div>
+                          <div class="landing-dark-line short"></div>
+                        </div>
+                      </div>
+
+                      <div class="landing-dark-task">
+                        <span class="landing-dark-check"></span>
+                        <div class="landing-dark-lines">
+                          <div class="landing-dark-line"></div>
+                          <div class="landing-dark-line short"></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="landing-dark-panel">
+                      <p class="landing-dark-panel-title">Spaces</p>
+                      <span class="landing-dark-pill">with_boss</span>
+                      <span class="landing-dark-pill">at_home</span>
+                      <span class="landing-dark-pill">using_laptop</span>
+                      <span class="landing-dark-pill">feeling_focused</span>
+                    </div>
+                  </div>
+
+                  <div class="landing-dark-bottom">
+                    <p class="landing-dark-panel-title">Schedule</p>
+                    <div class="landing-dark-days">
+                      <div class="landing-dark-day"></div>
+                      <div class="landing-dark-day"></div>
+                      <div class="landing-dark-day active"></div>
+                      <div class="landing-dark-day"></div>
+                      <div class="landing-dark-day"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="landing-dark-screenshot-placeholder">
+                <div>
+                  <strong>Replace with real hero screenshot</strong>
+                  <span>
+                    Recommended size: 1600 x 1100 px<br>
+                    Use your best dashboard screenshot with tasks, spaces and calendar visible
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </section>
 
-  <footer>© <span id="y"></span> FINY</footer>
-  <script>document.getElementById('y').textContent=new Date().getFullYear()</script>
+  <section class="landing-proof-strip">
+    <div class="landing-container">
+      <div class="landing-proof-grid">
+        <div class="landing-proof-card">
+          <h3>Clear</h3>
+          <p>See what matters now without mental clutter.</p>
+        </div>
+        <div class="landing-proof-card">
+          <h3>Trusted</h3>
+          <p>Keep commitments in a system, not in your head.</p>
+        </div>
+        <div class="landing-proof-card">
+          <h3>Focused</h3>
+          <p>Move from scattered tasks to deliberate execution.</p>
+        </div>
+        <div class="landing-proof-card">
+          <h3>Practical</h3>
+          <p>Built around real responsibility overload.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="problem" class="landing-section">
+    <div class="landing-container">
+      <span class="landing-eyebrow">The Problem</span>
+      <h2 class="landing-section-title">Modern professionals carry too much in their heads</h2>
+      <p class="landing-section-copy">
+        Meetings generate action items. Emails create tasks. Conversations turn into commitments.
+        Work projects, home responsibilities, follow ups and personal goals all compete for your attention.
+        The result is mental overload, not because you are lazy, but because life has become too fragmented.
+      </p>
+
+      <div class="landing-split landing-split-spaced">
+        <div class="landing-panel problem">
+          <h3>Without a trusted system</h3>
+          <ul class="landing-check-list">
+            <li>Important commitments live in memory</li>
+            <li>Tasks are scattered across chats, notes and emails</li>
+            <li>You feel busy but not fully in control</li>
+            <li>Something always feels like it might slip through the cracks</li>
+          </ul>
+        </div>
+
+        <div class="landing-panel solution">
+          <h3>With Finy</h3>
+          <ul class="landing-check-list">
+            <li>Everything is captured in one place</li>
+            <li>Responsibilities are organised by context</li>
+            <li>You know what to do next</li>
+            <li>Your mind can focus on thinking, not remembering</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="transformation" class="landing-section landing-section-soft">
+    <div class="landing-container">
+      <div class="landing-story-block">
+        <div class="landing-story-copy">
+          <span class="landing-eyebrow">From Chaos to Clarity</span>
+          <h2 class="landing-section-title">Finy turns responsibility overload into calm execution</h2>
+          <p class="landing-section-copy">
+            Finy is not just another task manager. It is a system for people whose responsibilities come from
+            everywhere. Instead of trying to remember everything, you capture it, organise it and focus only on
+            the next action that matters.
+          </p>
+        </div>
+
+        <div class="landing-story-visual">
+          <div class="landing-photo-placeholder">
+            <div>
+              <strong>Suggested image: calm professional at a clean desk</strong>
+              <span>
+                Dimensions: 1400 x 1000 px<br>
+                Style: premium modern workspace, soft natural light, minimal desk, confident focused expression
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="landing-section">
+    <div class="landing-container">
+      <span class="landing-eyebrow">Features</span>
+      <h2 class="landing-section-title">Designed to make clarity feel effortless</h2>
+      <p class="landing-section-copy">
+        Finy helps you move from scattered commitments to focused action with a workflow built for real life.
+      </p>
+
+      <div class="landing-feature-spotlights">
+
+        <div class="landing-feature-spotlight">
+          <div class="landing-feature-copy">
+            <span class="landing-feature-label">Capture fast</span>
+            <h3>Get everything out of your head quickly</h3>
+            <p>
+              Capture tasks, ideas and commitments the moment they arise so nothing important gets lost.
+            </p>
+            <ul class="landing-feature-list">
+              <li>Quick task capture</li>
+              <li>Notes and next actions</li>
+              <li>Inbox style collection</li>
+            </ul>
+          </div>
+
+          <div class="landing-feature-visual">
+            <div class="landing-photo-placeholder">
+              <div>
+                <strong>Suggested screenshot: inbox capture view</strong>
+                <span>
+                  Dimensions: 1600 x 1100 px<br>
+                  Show task entry, task list and note fields
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="landing-feature-spotlight reverse">
+          <div class="landing-feature-copy">
+            <span class="landing-feature-label">Organise clearly</span>
+            <h3>Sort responsibilities into the right context</h3>
+            <p>
+              Use folders, spaces, dates and context to give every responsibility a proper home.
+            </p>
+            <ul class="landing-feature-list">
+              <li>Folders for major areas of life</li>
+              <li>Spaces for context and environment</li>
+              <li>Planned dates and due dates</li>
+            </ul>
+          </div>
+
+          <div class="landing-feature-visual">
+            <div class="landing-photo-placeholder">
+              <div>
+                <strong>Suggested screenshot: task detail and organisation view</strong>
+                <span>
+                  Dimensions: 1600 x 1100 px<br>
+                  Show folder, spaces, dates, next action and notes
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="landing-feature-spotlight">
+          <div class="landing-feature-copy">
+            <span class="landing-feature-label">Execute with focus</span>
+            <h3>See what matters now and move forward calmly</h3>
+            <p>
+              Instead of staring at a giant list, Finy helps you focus on what should be done next.
+            </p>
+            <ul class="landing-feature-list">
+              <li>Today view and task prioritisation</li>
+              <li>Calendar based planning</li>
+              <li>Cleaner daily execution</li>
+            </ul>
+          </div>
+
+          <div class="landing-feature-visual">
+            <div class="landing-photo-placeholder">
+              <div>
+                <strong>Suggested screenshot: today view or calendar view</strong>
+                <span>
+                  Dimensions: 1600 x 1100 px<br>
+                  Show the day plan with visible tasks and schedule blocks
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="how" class="landing-section landing-section-soft">
+    <div class="landing-container">
+      <span class="landing-eyebrow">How it works</span>
+      <h2 class="landing-section-title">A simple workflow for managing responsibilities</h2>
+
+      <div class="landing-steps">
+        <div class="landing-step">
+          <div class="landing-step-number">1</div>
+          <h3>Capture</h3>
+          <p>Collect tasks, ideas and commitments before they disappear into mental clutter.</p>
+        </div>
+
+        <div class="landing-step">
+          <div class="landing-step-number">2</div>
+          <h3>Organise</h3>
+          <p>Give each responsibility the right context, project, date and next action.</p>
+        </div>
+
+        <div class="landing-step">
+          <div class="landing-step-number">3</div>
+          <h3>Execute</h3>
+          <p>Work from a calmer system that shows you what matters now.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section">
+    <div class="landing-container">
+      <div class="landing-founder-box">
+        <div class="landing-founder-copy">
+          <span class="landing-eyebrow">Why Finy Exists</span>
+          <h2 class="landing-section-title">Built for people carrying too much responsibility</h2>
+          <p class="landing-section-copy">
+            Finy exists because modern professionals are not failing from lack of ambition. They are overwhelmed by
+            too many parallel responsibilities. Finy is designed to turn that overload into clarity, structure and
+            focused execution.
+          </p>
+        </div>
+
+        <div class="landing-founder-visual">
+          <div class="landing-photo-placeholder">
+            <div>
+              <strong>Suggested image: founder style brand image</strong>
+              <span>
+                Dimensions: 1200 x 1200 px<br>
+                Style: thoughtful professional, minimal background, premium and trustworthy
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section landing-cta">
+    <div class="landing-container">
+      <div class="landing-cta-box">
+        <h2>Get everything out of your head and into a trusted system</h2>
+        <p>
+          Finy helps busy professionals manage responsibilities with clarity, control and focus.
+        </p>
+
+        <div class="landing-cta-actions">
+          <a class="landing-btn landing-btn-primary" href="#">Start Using Finy</a>
+          <a class="landing-btn landing-btn-secondary" href="{% url 'ui:login' %}">Login</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <div class="landing-footer-inner">
+      <div>© 2026 Finy</div>
+      <div>Built for professionals who want clarity, not clutter.</div>
+    </div>
+  </footer>
+
 </body>
 </html>
