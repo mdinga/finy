@@ -417,6 +417,7 @@ async function renderSidebar(){
 
 /* Filters */
 async function filterByFolder(folderId){
+  showListView();
   const f = (foldersCache || []).find(x => String(x.id) === String(folderId));
   activeFilter = { type:'folder', id: parseInt(folderId,10), name: f ? f.name : 'Folder' };
   await renderListByFilter();
@@ -424,6 +425,7 @@ async function filterByFolder(folderId){
 window.filterByFolder = filterByFolder;
 
 async function filterBySpace(spaceId){
+  showListView();
   const s = (spacesCache || []).find(x => String(x.id) === String(spaceId));
   activeFilter = { type:'space', id: parseInt(spaceId,10), name: s ? s.name : 'Space' };
   await renderListByFilter();
@@ -431,22 +433,27 @@ async function filterBySpace(spaceId){
 window.filterBySpace = filterBySpace;
 
 async function showInbox(){
+  showListView();
   activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
   await renderListByFilter();
 }
 async function showPriority(){
+  showListView();
   activeFilter = { type:'priority', id:null, name:'Priority' };
   await renderListByFilter();
 }
 async function showToday(){
+  showListView();
   activeFilter = { type:'today', id:null, name:'Today' };
   await renderListByFilter();
 }
 async function showUpcoming(){
+  showListView();
   activeFilter = { type:'upcoming', id:null, name:'Upcoming' };
   await renderListByFilter();
 }
 async function showCompleted(){
+  showListView();
   activeFilter = { type:'completed', id:null, name:'Completed Tasks' };
   await renderListByFilter();
 }
@@ -508,6 +515,8 @@ window.createSpace = createSpace;
 
 /* List rendering */
 async function renderListByFilter(){
+  showListView();  
+
   if(els.listTitle){
     if(activeFilter?.type === 'today'){
       els.listTitle.textContent = `Today · ${fmtTodayLabel()}`;
