@@ -1,0 +1,112 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>About & Contact | Finy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Learn about Mbasa Dinga, why Finy was created, and how to get in touch.">
+  <link rel="stylesheet" href="{% static 'ui/css/workspace.css' %}">
+</head>
+
+<body class="landing-page">
+
+  <header class="landing-navbar">
+    <div class="landing-nav-inner">
+      <a href="{% url 'ui:home' %}" class="landing-brand">
+        <img src="{% static 'ui/images/Finy_logo_1.png' %}" alt="Finy Logo" class="landing-logo">
+      </a>
+
+      <nav class="landing-nav-links">
+        <a href="{% url 'ui:home' %}">Home</a>
+        <a href="{% url 'ui:about_contact' %}">About & Contact</a>
+      </nav>
+
+      <div class="landing-nav-actions">
+        <a class="landing-btn landing-btn-secondary" href="{% url 'ui:login' %}">Login</a>
+        <a class="landing-btn landing-btn-primary" href="{% url 'ui:register' %}">Get Started</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="landing-section">
+    <div class="landing-container">
+      <div class="landing-about-grid">
+
+        <div class="landing-about-image-card">
+          <img src="{% static 'ui/images/about_me.jpg' %}" alt="Mbasa Dinga standing in an office block">
+        </div>
+
+        <div class="landing-about-copy">
+          <span class="landing-eyebrow">About the Founder</span>
+          <h1 class="landing-section-title">Hi, I’m Mbasa Dinga.</h1>
+          <p class="landing-section-copy">
+            I created Finy because I understand what it feels like to carry responsibilities
+            from every direction. Work, projects, home, follow ups and personal goals can quickly
+            become mentally overwhelming.
+          </p>
+          <p class="landing-section-copy">
+            Finy was built to help professionals move from overload to clarity by creating a trusted
+            system for capturing, organising and acting on responsibilities.
+          </p>
+          <p class="landing-section-copy">
+            My goal is simple: help people work with more calm, more structure and more control.
+          </p>
+
+          <div class="landing-contact-links">
+            <a class="landing-btn landing-btn-secondary" href="https://www.linkedin.com/in/mbasa-dinga" target="_blank" rel="noopener noreferrer">
+              Connect on LinkedIn
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="landing-section landing-section-soft">
+    <div class="landing-container">
+      <div class="landing-contact-card">
+        <div class="landing-contact-copy">
+          <span class="landing-eyebrow">Contact</span>
+          <h2 class="landing-section-title">Get in touch</h2>
+          <p class="landing-section-copy">
+            Interested in Finy, early access, feedback or partnerships? Send me a message below.
+          </p>
+        </div>
+
+        <form class="landing-contact-form" method="post" action="">
+          {% csrf_token %}
+          <div class="landing-form-row">
+            <div class="landing-form-group">
+              <label for="contact_name">Name</label>
+              <input type="text" id="contact_name" name="name" placeholder="Your name">
+            </div>
+            <div class="landing-form-group">
+              <label for="contact_email">Email</label>
+              <input type="email" id="contact_email" name="email" placeholder="you@example.com">
+            </div>
+          </div>
+
+          <div class="landing-form-group">
+            <label for="contact_message">Message</label>
+            <textarea id="contact_message" name="message" rows="6" placeholder="How can I help?"></textarea>
+          </div>
+
+          <button type="submit" class="landing-btn landing-btn-primary">
+            Send Message
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <div class="landing-footer-inner">
+      <div>© 2026 Finy</div>
+      <div>Built for professionals who want clarity, not clutter.</div>
+    </div>
+  </footer>
+
+</body>
+</html>

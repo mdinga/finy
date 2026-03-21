@@ -1,7 +1,7 @@
 
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Login | Finy{% endblock %}
+{% block title %}Register | Finy{% endblock %}
 
 {% block content %}
 <section class="finy-auth-page">
@@ -18,19 +18,19 @@
         <p class="finy-auth-eyebrow">Responsibility Management System</p>
 
         <h1 class="finy-auth-side-title">
-          Stop managing
-          <span>tasks in your head</span>
+          Start building
+          <span>clarity</span>
         </h1>
 
         <p class="finy-auth-side-copy">
-          Finy helps busy professionals capture, organise and execute responsibilities
-          across work and life with clarity and focus.
+          Create your Finy account and start managing responsibilities
+          across work and life in one trusted system.
         </p>
 
         <div class="finy-auth-side-points">
           <div class="finy-auth-side-point">
             <span class="finy-auth-side-point-icon">✓</span>
-            <span>Capture everything in one trusted system</span>
+            <span>Capture everything in one place</span>
           </div>
           <div class="finy-auth-side-point">
             <span class="finy-auth-side-point-icon">✓</span>
@@ -47,60 +47,56 @@
     <div class="finy-auth-main">
       <div class="finy-auth-card">
         <div class="finy-auth-card-top">
-          <h2 class="finy-auth-title">Welcome back</h2>
+          <h2 class="finy-auth-title">Create your account</h2>
           <p class="finy-auth-subtitle">
-            Log in to continue to your workspace.
+            Start using Finy today.
           </p>
         </div>
 
-        {% if messages %}
-          {% for message in messages %}
-            <div class="finy-auth-alert">{{ message }}</div>
-          {% endfor %}
+        {% if form.errors %}
+          <div class="finy-auth-alert">
+            Please fix the errors below.
+          </div>
         {% endif %}
 
         <form method="post" class="finy-auth-form" novalidate>
           {% csrf_token %}
 
           <div class="finy-auth-field">
-            <label for="id_email">Email</label>
-            <input
-              type="email"
-              name="email"
-              id="id_email"
-              required
-              autocomplete="email"
-              placeholder="you@example.com"
-            >
+            <label for="{{ form.first_name.id_for_label }}">Name</label>
+            {{ form.first_name }}
+            {{ form.first_name.errors }}
           </div>
 
           <div class="finy-auth-field">
-            <div class="finy-auth-label-row">
-              <label for="id_password">Password</label>
-                <a href="{% url 'ui:password_reset' %}" class="finy-auth-inline-link">Forgot password?</a>
-            </div>
+            <label for="{{ form.email.id_for_label }}">Email</label>
+            {{ form.email }}
+            {{ form.email.errors }}
+          </div>
 
-            <input
-              type="password"
-              name="password"
-              id="id_password"
-              required
-              autocomplete="current-password"
-              placeholder="Enter your password"
-            >
+          <div class="finy-auth-field">
+            <label for="{{ form.password1.id_for_label }}">Password</label>
+            {{ form.password1 }}
+            {{ form.password1.errors }}
+          </div>
+
+          <div class="finy-auth-field">
+            <label for="{{ form.password2.id_for_label }}">Confirm Password</label>
+            {{ form.password2 }}
+            {{ form.password2.errors }}
           </div>
 
           <button type="submit" class="finy-auth-submit">
-            Log In
+            Create Account
           </button>
         </form>
 
         <div class="finy-auth-divider">
-          <span>New to Finy?</span>
+          <span>Already have an account?</span>
         </div>
 
-        <a href="{% url 'ui:register' %}" class="finy-auth-secondary-btn">
-          Create an account
+        <a href="{% url 'ui:login' %}" class="finy-auth-secondary-btn">
+          Back to login
         </a>
       </div>
     </div>

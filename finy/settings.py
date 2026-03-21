@@ -115,6 +115,17 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend"
+)
+
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL",
+    default="noreply@finy.local"
+)
+
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
