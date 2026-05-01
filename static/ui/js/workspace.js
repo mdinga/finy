@@ -412,6 +412,13 @@ async function renderSidebar(){
       completedBadge.textContent = String(c);
     }
 
+  const priorityBadge = document.getElementById('priority-count-badge');
+    if(priorityBadge){
+      const r = await apiGet(API.priority);
+      const c = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
+      priorityBadge.textContent = String(c);
+    }
+
 
 }
 
