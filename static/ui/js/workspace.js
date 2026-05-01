@@ -515,7 +515,7 @@ window.createSpace = createSpace;
 
 /* List rendering */
 async function renderListByFilter(){
-  showListView();  
+  showListView();
 
   if(els.listTitle){
     if(activeFilter?.type === 'today'){
@@ -528,7 +528,7 @@ async function renderListByFilter(){
 
   let res;
   if(activeFilter.type === 'inbox'){
-    res = await apiGet(`${API.tasks}?folder=${inboxId}&ordering=due_date`);
+    res = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'priority'){
     res = await apiGet(API.priority);
   } else if(activeFilter.type === 'today'){
@@ -536,13 +536,13 @@ async function renderListByFilter(){
   } else if(activeFilter.type === 'upcoming'){
     res = await apiGet(API.upcoming);
   } else if(activeFilter.type === 'folder'){
-    res = await apiGet(`${API.tasks}?folder=${activeFilter.id}&ordering=due_date`);
+    res = await apiGet(`${API.tasks}?folder=${activeFilter.id}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'space'){
-    res = await apiGet(`${API.tasks}?spaces=${activeFilter.id}&ordering=due_date`);
+    res = await apiGet(`${API.tasks}?spaces=${activeFilter.id}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'completed'){
     res = await apiGet(`${API.tasks}?completed=true&ordering=-updated_at`);
   } else {
-    res = await apiGet(`${API.tasks}?ordering=due_date`);
+    res = await apiGet(`${API.tasks}?completed=false&ordering=due_date`);
   }
 
 
