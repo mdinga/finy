@@ -313,6 +313,17 @@ body.workspace-page main.container-fluid {
   border-color: #dc3545 !important;
 }
 
+.task-meta-link {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-meta-link:hover {
+  text-decoration: underline;
+}
+
+
 /* Spaces */
 
 .space-cats {

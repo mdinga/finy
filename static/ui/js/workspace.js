@@ -601,8 +601,29 @@ function buildTaskCard(t){
   const est = t.estimated_minutes ? `${t.estimated_minutes} min` : '';
   const completedAt = t.completed_at ? fmtUIDateTimeFromISO(t.completed_at) : '';
 
-  const spaces = (t.spaces_display || '').trim();
   const folderName = (t.folder_name || '').trim();
+
+  const folderHtml = t.folder && folderName ? `
+    <span class="me-2 task-meta-link"
+            onclick="event.stopPropagation(); filterByFolder('${t.folder}')">
+      📁 ${esc(folderName)}
+    </span>
+  ` : '';
+
+  const selectedSpaceIds = Array.isArray(t.spaces) ? t.spaces.map(x => String(x)) : [];
+
+  const spacesHtml = selectedSpaceIds
+    .map(spaceId => {
+      const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));
+      if(!space) return '';
+      return `
+        <span class="me-2 task-meta-link"
+                onclick="event.stopPropagation(); filterBySpace('${space.id}')">
+          🏷️ ${esc(space.name)}
+        </span>
+      `;
+    })
+    .join('');
 
   wrap.innerHTML = `
     <div class="card-body">
@@ -617,8 +638,8 @@ function buildTaskCard(t){
           </div>
 
           <div class="meta-icons mt-1">
-            ${folderName ? `<span class="me-2">📁 ${esc(folderName)}</span>` : ''}
-            ${spaces ? `<span class="me-2">🏷️ ${esc(spaces)}</span>` : ''}
+            ${folderHtml}
+            ${spacesHtml}
             ${planned ? `<span class="me-2">🗓️ ${esc(planned)}</span>` : ''}
             ${!t.completed && due ? `<span class="me-2">⏰ ${esc(due)}</span>` : ''}
             ${est ? `<span class="me-2">⏳ ${esc(est)}</span>` : ''}
