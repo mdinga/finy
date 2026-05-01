@@ -29,7 +29,8 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "finy.co.za", "www.finy.co.za", "41.61.20.230"]
+
 
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
@@ -37,7 +38,6 @@ if RENDER_EXTERNAL_HOSTNAME:
 ALLOWED_HOSTS += [
     "finy.co.za",
     "www.finy.co.za",
-    "https://finy-nmyj.onrender.com/"
 ]
 
 
@@ -133,10 +133,26 @@ EMAIL_BACKEND = config(
     default="django.core.mail.backends.console.EmailBackend"
 )
 
+
+EMAIL_HOST = config("EMAIL_HOST", default="")
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
+EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=True, cast=bool)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
+
+
 DEFAULT_FROM_EMAIL = config(
     "DEFAULT_FROM_EMAIL",
-    default="noreply@finy.local"
+    default="no-reply@finy.co.za"
 )
+
+ADMIN_NOTIFICATION_EMAIL = config(
+    "ADMIN_NOTIFICATION_EMAIL",
+    default="mbasa.dinga@gmail.com"
+)
+
+
 
 
 

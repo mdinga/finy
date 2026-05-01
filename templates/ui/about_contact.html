@@ -64,6 +64,14 @@
     </div>
   </section>
 
+  {% if messages %}
+    <div>
+      {% for message in messages %}
+        <p>{{ message }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <section class="landing-section landing-section-soft">
     <div class="landing-container">
       <div class="landing-contact-card">
@@ -77,20 +85,24 @@
 
         <form class="landing-contact-form" method="post" action="">
           {% csrf_token %}
+          <div style="display:none;">
+            <label for="website">Website</label>
+            <input type="text" id="website" name="website" autocomplete="off" tabindex="-1">
+          </div>
           <div class="landing-form-row">
             <div class="landing-form-group">
               <label for="contact_name">Name</label>
-              <input type="text" id="contact_name" name="name" placeholder="Your name">
+              <input type="text" id="contact_name" name="name" placeholder="Your name" required>
             </div>
             <div class="landing-form-group">
               <label for="contact_email">Email</label>
-              <input type="email" id="contact_email" name="email" placeholder="you@example.com">
+              <input type="email" id="contact_email" name="email" placeholder="you@example.com" required>
             </div>
           </div>
 
           <div class="landing-form-group">
             <label for="contact_message">Message</label>
-            <textarea id="contact_message" name="message" rows="6" placeholder="How can I help?"></textarea>
+            <textarea id="contact_message" name="message" rows="6" placeholder="How can I help?" required></textarea>
           </div>
 
           <button type="submit" class="landing-btn landing-btn-primary">
