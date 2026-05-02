@@ -13,6 +13,10 @@ media/
 venv/
 env/
 
+
+#Settings.py
+finy/settings.py
+
 # VS Code
 .vscode/
 

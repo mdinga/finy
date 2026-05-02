@@ -70,7 +70,7 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     filterset_class = TaskFilter
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'folder__name', 'spaces__name', 'subtasks__title']
-    ordering_fields = ['due_date', 'created_at', 'estimated_minutes']
+    ordering_fields = ['planned_date', 'due_date', 'created_at', 'estimated_minutes']
 
     @action(detail=True, methods=["get", "post"], url_path="notes")
     def notes(self, request, pk=None):

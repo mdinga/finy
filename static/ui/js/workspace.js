@@ -113,7 +113,19 @@ const els = {
   newTaskForm: document.getElementById('new-task-form'),
   newTaskTitle: document.getElementById('nt-title'),
   inboxBadge: document.getElementById('inbox-count-badge'),
-  listTitle: document.getElementById('list-title')
+  listTitle: document.getElementById('list-title'),
+  globalSearchForm: document.getElementById('global-search-form'),
+  globalSearchInput: document.getElementById('global-search-input'),
+  clearSearchBtn: document.getElementById('clear-search-btn'),
+  taskFilterBar: document.getElementById('task-filter-bar'),
+  filterSpaceWrap: document.getElementById('filter-space-wrap'),
+  filterFolderWrap: document.getElementById('filter-folder-wrap'),
+  filterSpace: document.getElementById('filter-space'),
+  filterFolder: document.getElementById('filter-folder'),
+  filterSort: document.getElementById('filter-sort'),
+  applyTaskFilters: document.getElementById('apply-task-filters'),
+  clearTaskFilters: document.getElementById('clear-task-filters')
+
 };
 
 /* Calendar state and elements */
@@ -164,6 +176,10 @@ function wireButtons(){
   calEls.calBack?.addEventListener('click', () => showListView());
 
   els.newTaskForm?.addEventListener('submit', onCreateSubmit);
+  els.globalSearchForm?.addEventListener('submit', onGlobalSearchSubmit);
+  els.clearSearchBtn?.addEventListener('click', clearGlobalSearch);
+  els.applyTaskFilters?.addEventListener('click', applyTaskFilters);
+  els.clearTaskFilters?.addEventListener('click', clearTaskFilters);
 }
 
 async function showCalendar(){
@@ -423,47 +439,188 @@ async function renderSidebar(){
 }
 
 /* Filters */
-async function filterByFolder(folderId){
-  showListView();
-  const f = (foldersCache || []).find(x => String(x.id) === String(folderId));
-  activeFilter = { type:'folder', id: parseInt(folderId,10), name: f ? f.name : 'Folder' };
-  await renderListByFilter();
-}
-window.filterByFolder = filterByFolder;
 
-async function filterBySpace(spaceId){
-  showListView();
-  const s = (spacesCache || []).find(x => String(x.id) === String(spaceId));
-  activeFilter = { type:'space', id: parseInt(spaceId,10), name: s ? s.name : 'Space' };
-  await renderListByFilter();
-}
-window.filterBySpace = filterBySpace;
 
-async function showInbox(){
+async function onGlobalSearchSubmit(e){
+  e.preventDefault();
+
+  const query = (els.globalSearchInput?.value || '').trim();
+
+  if(!query){
+    await showCalendar();
+    return;
+  }
+
   showListView();
-  activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
+
+  activeFilter = {
+    type: 'search',
+    id: null,
+    name: `Search: ${query}`,
+    query: query
+  };
+
   await renderListByFilter();
 }
-async function showPriority(){
-  showListView();
-  activeFilter = { type:'priority', id:null, name:'Priority' };
-  await renderListByFilter();
+
+async function clearGlobalSearch(){
+  if(els.globalSearchInput){
+    els.globalSearchInput.value = '';
+  }
+
+  await showCalendar();
 }
-async function showToday(){
-  showListView();
-  activeFilter = { type:'today', id:null, name:'Today' };
-  await renderListByFilter();
+
+function resetTaskFilterControls(){
+  if(els.filterSpace) els.filterSpace.value = '';
+  if(els.filterFolder) els.filterFolder.value = '';
+  if(els.filterSort) els.filterSort.value = 'planned_date';
 }
-async function showUpcoming(){
-  showListView();
-  activeFilter = { type:'upcoming', id:null, name:'Upcoming' };
-  await renderListByFilter();
+
+function populateTaskFilterControls(){
+  if(els.filterSpace){
+    const usedSpaceIds = new Set();
+
+    (window.currentTasks || []).forEach(t => {
+      (t.spaces || []).forEach(sid => usedSpaceIds.add(String(sid)));
+    });
+
+    const spaces = (spacesCache || [])
+      .filter(s => usedSpaceIds.has(String(s.id)))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+
+    els.filterSpace.innerHTML =
+      '<option value="">All spaces</option>' +
+      spaces.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  }
+
+  if(els.filterFolder){
+    const usedFolderIds = new Set();
+
+    (window.currentTasks || []).forEach(t => {
+      if(t.folder) usedFolderIds.add(String(t.folder));
+    });
+
+    const folders = (foldersCache || [])
+      .filter(f => usedFolderIds.has(String(f.id)))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    els.filterFolder.innerHTML =
+      '<option value="">All folders</option>' +
+      folders.map(f => `<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  }
 }
-async function showCompleted(){
-  showListView();
-  activeFilter = { type:'completed', id:null, name:'Completed Tasks' };
-  await renderListByFilter();
-}
+
+  function updateTaskFilterBar(){
+    if(!els.taskFilterBar) return;
+
+    const isFolder = activeFilter?.type === 'folder';
+    const isSpace = activeFilter?.type === 'space';
+    const isPriority = activeFilter?.type === 'priority';
+
+    if(!isFolder && !isSpace && !isPriority){
+      els.taskFilterBar.classList.add('d-none');
+      return;
+    }
+
+    populateTaskFilterControls();
+
+    els.taskFilterBar.classList.remove('d-none');
+
+    if(els.filterSpaceWrap){
+      els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isPriority));
+    }
+
+    if(els.filterFolderWrap){
+      els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isPriority));
+    }
+  }
+
+  async function applyTaskFilters(){
+    if(!activeFilter || !['folder', 'space', 'priority'].includes(activeFilter.type)) return;
+
+    activeFilter.extra = {
+      space: els.filterSpace?.value || '',
+      folder: els.filterFolder?.value || '',
+      ordering: els.filterSort?.value || 'planned_date'
+    };
+
+    await renderListByFilter();
+  }
+
+  async function clearTaskFilters(){
+    if(!activeFilter || !['folder', 'space', 'priority'].includes(activeFilter.type)) return;
+
+    activeFilter.extra = {
+      space: '',
+      folder: '',
+      ordering: 'planned_date'
+    };
+
+    resetTaskFilterControls();
+
+    await renderListByFilter();
+  }
+
+  async function filterByFolder(folderId){
+    showListView();
+    const f = (foldersCache || []).find(x => String(x.id) === String(folderId));
+    activeFilter = {
+      type:'folder',
+      id: parseInt(folderId,10),
+      name: f ? f.name : 'Folder',
+      extra: { space: '', folder: '', ordering: 'planned_date' }
+    };
+    await renderListByFilter();
+  }
+  window.filterByFolder = filterByFolder;
+
+  async function filterBySpace(spaceId){
+    showListView();
+
+    const s = (spacesCache || []).find(x => String(x.id) === String(spaceId));
+
+    activeFilter = {
+      type:'space',
+      id: parseInt(spaceId,10),
+      name: s ? s.name : 'Space',
+      extra: { space: '', folder: '', plannedDate: '', ordering: 'planned_date' }
+    };
+
+    await renderListByFilter();
+  }
+
+  window.filterBySpace = filterBySpace;
+
+  async function showInbox(){
+    showListView();
+    activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
+    await renderListByFilter();
+  }
+  async function showPriority(){
+    showListView();
+    activeFilter = {
+      type:'priority',
+      id:null,
+      name:'Priority',
+      extra: { space: '', folder: '', ordering: 'planned_date' }
+    };
+    await renderListByFilter();
+  }
+  async function showToday(){
+    showListView();
+    activeFilter = { type:'today', id:null, name:'Today' };
+    await renderListByFilter();
+  }
+  async function showUpcoming(){
+    showListView();
+    activeFilter = { type:'upcoming', id:null, name:'Upcoming' };
+    await renderListByFilter();
+  }
+  async function showCompleted(){
+    showListView();
+    activeFilter = { type:'completed', id:null, name:'Completed Tasks' };
+    await renderListByFilter();
+  }
 
 
 /* New task */
@@ -532,28 +689,67 @@ async function renderListByFilter(){
     }
   }
 
+  updateTaskFilterBar();
 
   let res;
   if(activeFilter.type === 'inbox'){
     res = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'priority'){
-    res = await apiGet(API.priority);
+  const extra = activeFilter.extra || {};
+  const params = new URLSearchParams();
+
+  params.set('completed', 'false');
+
+  if(extra.space) params.set('spaces', extra.space);
+  if(extra.folder) params.set('folder', extra.folder);
+
+  params.set('ordering', extra.ordering || 'planned_date');
+
+  res = await apiGet(`${API.tasks}?${params.toString()}`);
+
+  const todayIso = toISODate(new Date());
+  const list = res.results || res || [];
+  res = list.filter(t => t.due_date && t.due_date <= todayIso && !t.completed);
   } else if(activeFilter.type === 'today'){
     res = await apiGet(API.today);
   } else if(activeFilter.type === 'upcoming'){
     res = await apiGet(API.upcoming);
   } else if(activeFilter.type === 'folder'){
-    res = await apiGet(`${API.tasks}?folder=${activeFilter.id}&completed=false&ordering=due_date`);
+    const extra = activeFilter.extra || {};
+    const params = new URLSearchParams();
+
+    params.set('folder', activeFilter.id);
+    params.set('completed', 'false');
+
+    if(extra.space) params.set('spaces', extra.space);
+
+    params.set('ordering', extra.ordering || 'planned_date');
+
+    res = await apiGet(`${API.tasks}?${params.toString()}`);
   } else if(activeFilter.type === 'space'){
-    res = await apiGet(`${API.tasks}?spaces=${activeFilter.id}&completed=false&ordering=due_date`);
+    const extra = activeFilter.extra || {};
+    const params = new URLSearchParams();
+
+    params.set('spaces', activeFilter.id);
+    params.set('completed', 'false');
+
+    if(extra.folder) params.set('folder', extra.folder);
+
+    params.set('ordering', extra.ordering || 'planned_date');
+
+    res = await apiGet(`${API.tasks}?${params.toString()}`);
   } else if(activeFilter.type === 'completed'){
     res = await apiGet(`${API.tasks}?completed=true&ordering=-updated_at`);
+  } else if(activeFilter.type === 'search'){
+    const q = encodeURIComponent(activeFilter.query || '');
+    res = await apiGet(`${API.tasks}?search=${q}&ordering=due_date`);
   } else {
     res = await apiGet(`${API.tasks}?completed=false&ordering=due_date`);
   }
 
 
-  let tasks = res.results || res || [];
+  let tasks = Array.isArray(res) ? res : (res.results || res || []);
+  window.currentTasks = tasks;
   if(activeFilter.type === 'completed') tasks = tasks.filter(t => t.completed);
 
   renderTasks(tasks);
@@ -566,21 +762,15 @@ function renderTasks(tasks){
   els.list.innerHTML = '';
 
   if(!tasks.length){
-    els.list.innerHTML = `<div class="text-muted small p-3">No tasks here yet.</div>`;
+    if(activeFilter?.type === 'search'){
+      els.list.innerHTML = `<div class="text-muted small p-3">No tasks found for “${esc(activeFilter.query || '')}”.</div>`;
+    } else {
+      els.list.innerHTML = `<div class="text-muted small p-3">No tasks here yet.</div>`;
+    }
     return;
   }
 
-  const sorted = tasks.slice().sort((a,b) => {
-    const ac = a.completed ? 1 : 0;
-    const bc = b.completed ? 1 : 0;
-    if(ac !== bc) return ac - bc; // incomplete first
-
-    const ad = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
-    const bd = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
-    return ad - bd;
-  });
-
-  sorted.forEach(t => els.list.appendChild(buildTaskCard(t)));
+  tasks.forEach(t => els.list.appendChild(buildTaskCard(t)));
 }
 
 

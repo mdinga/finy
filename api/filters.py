@@ -4,12 +4,13 @@ from core.models import Task
 class TaskFilter(django_filters.FilterSet):
     spaces = django_filters.CharFilter(method='filter_spaces')  # expects comma-separated ids
     date = django_filters.DateFilter(field_name='due_date')
+    planned_date = django_filters.DateFilter(field_name='planned_date')
     completed = django_filters.BooleanFilter(field_name='completed')
     folder = django_filters.NumberFilter(field_name='folder_id')
 
     class Meta:
         model = Task
-        fields = ['folder', 'completed', 'date']
+        fields = ['folder', 'completed', 'date', 'planned_date']
 
     def filter_spaces(self, queryset, name, value):
         if not value:
