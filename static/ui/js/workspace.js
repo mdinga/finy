@@ -138,7 +138,7 @@ async function init(){
   await loadCategories();
   await resolveInbox();
   await renderSidebar();
-  await showInbox();
+  await showCalendar();
 }
 
 function wireButtons(){
@@ -192,8 +192,8 @@ async function renderCalendarRange(){
 
   const center = calStart || startOfDay(new Date());
   const today = startOfDay(new Date());
-  const start = startOfDay(addDays(center, -3));
-  const end = startOfDay(addDays(center, 3));
+  const start = startOfDay(center);
+  const end = startOfDay(addDays(center, 6));
 
   const startISO = toISODate(start);
   const endISO = toISODate(end);
@@ -679,9 +679,14 @@ function buildDetailsPanel(t){
       </div>
 
       <div id="tab-${t.id}-details" class="tab-panel show">
-        <div class="row g-2">
+      <div class="row g-2">
 
-        <div class="col-12 col-lg-4">
+        <div class="col-12">
+          <label class="form-label small">Task name</label>
+          <input class="form-control form-control-sm" id="title-${t.id}" type="text" value="${esc(t.title || '')}">
+        </div>
+
+      <div class="col-12 col-lg-4">
           <label class="form-label small">Folder</label>
           ${buildFolderSelectHtml(t.id, folderId)}
         </div>
@@ -876,6 +881,7 @@ async function toggleComplete(taskId){
 window.toggleComplete = toggleComplete;
 
 async function saveDetails(taskId){
+  const title = (document.getElementById('title-' + taskId)?.value || '').trim();
   const planned = document.getElementById('planned-' + taskId)?.value || null;
   const due = document.getElementById('due-' + taskId)?.value || null;
   const est = document.getElementById('est-' + taskId)?.value || null;
@@ -889,14 +895,15 @@ async function saveDetails(taskId){
     .map(ch => parseInt(ch.value, 10))
     .filter(n => Number.isFinite(n));
 
-  const payload = {
-    folder: folderVal ? parseInt(folderVal, 10) : null,
-    spaces: spaces,
-    planned_date: planned || null,
-    due_date: due || null,
-    estimated_minutes: est ? parseInt(est,10) : null,
-    repeat_rule: repeat || ''
-  };
+    const payload = {
+      title: title,
+      folder: folderVal ? parseInt(folderVal, 10) : null,
+      spaces: spaces,
+      planned_date: planned || null,
+      due_date: due || null,
+      estimated_minutes: est ? parseInt(est,10) : null,
+      repeat_rule: repeat || ''
+    };
 
   const msg = document.getElementById('save-msg-' + taskId);
   const err = document.getElementById('save-err-' + taskId);
