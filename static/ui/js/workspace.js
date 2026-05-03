@@ -153,6 +153,23 @@ async function init(){
   await showCalendar();
 }
 
+
+function toggleDueDateForRepeat(taskId){
+  const repeat = document.getElementById('repeat-' + taskId)?.value || '';
+  const dueInput = document.getElementById('due-' + taskId);
+
+  if(!dueInput) return;
+
+  if(repeat){
+    dueInput.value = '';
+    dueInput.disabled = true;
+  } else {
+    dueInput.disabled = false;
+  }
+}
+window.toggleDueDateForRepeat = toggleDueDateForRepeat;
+
+
 function wireButtons(){
   document.getElementById('showAddFolder')?.addEventListener('click', () => {
     document.getElementById('addFolderRow')?.classList.remove('d-none');
@@ -196,6 +213,9 @@ function showListView(){
   if(calEls.calView) calEls.calView.classList.add('d-none');
   if(calEls.listView) calEls.listView.classList.remove('d-none');
 }
+
+
+
 
 async function shiftCalendar(deltaDays){
   if(!calStart) calStart = startOfDay(new Date());
@@ -908,7 +928,7 @@ function buildDetailsPanel(t){
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label small">Due date</label>
-            <input class="form-control form-control-sm" id="due-${t.id}" type="date" value="${esc(due)}">
+            <input class="form-control form-control-sm" id="due-${t.id}" type="date" value="${esc(due)}" ${repeat ? 'disabled' : ''}>
           </div>
           <div class="col-12 col-md-4">
             <label class="form-label small">Estimated minutes</label>
@@ -917,7 +937,15 @@ function buildDetailsPanel(t){
 
           <div class="col-12 col-md-6">
             <label class="form-label small">Repeat</label>
-            <input class="form-control form-control-sm" id="repeat-${t.id}" placeholder="e.g. WEEKLY" value="${esc(repeat)}">
+            <select class="form-select form-select-sm" id="repeat-${t.id}" onchange="toggleDueDateForRepeat(${t.id})">
+              <option value="" ${repeat === '' ? 'selected' : ''}>Does not repeat</option>
+              <option value="EVERY_DAY" ${repeat === 'EVERY_DAY' ? 'selected' : ''}>Every day</option>
+              <option value="EVERY_2_DAYS" ${repeat === 'EVERY_2_DAYS' ? 'selected' : ''}>Every 2 days</option>
+              <option value="WEEKLY" ${repeat === 'WEEKLY' ? 'selected' : ''}>Every week</option>
+              <option value="EVERY_2_WEEKS" ${repeat === 'EVERY_2_WEEKS' ? 'selected' : ''}>Every 2 weeks</option>
+              <option value="MONTHLY" ${repeat === 'MONTHLY' ? 'selected' : ''}>Every month</option>
+              <option value="EVERY_2_MONTHS" ${repeat === 'EVERY_2_MONTHS' ? 'selected' : ''}>Every 2 months</option>
+            </select>
           </div>
         </div>
 
@@ -1058,6 +1086,7 @@ async function openDetails(taskId){
   if(!el) return;
   el.classList.toggle('d-none');
   if(!el.classList.contains('d-none')){
+    toggleDueDateForRepeat(taskId);  // <-- ADD THIS
     await loadNotes(taskId);
     await loadActions(taskId);
   }
@@ -1073,9 +1102,10 @@ window.toggleComplete = toggleComplete;
 async function saveDetails(taskId){
   const title = (document.getElementById('title-' + taskId)?.value || '').trim();
   const planned = document.getElementById('planned-' + taskId)?.value || null;
-  const due = document.getElementById('due-' + taskId)?.value || null;
-  const est = document.getElementById('est-' + taskId)?.value || null;
   const repeat = document.getElementById('repeat-' + taskId)?.value || '';
+  const dueInput = document.getElementById('due-' + taskId);
+  const due = repeat ? null : (dueInput?.value || null);
+  const est = document.getElementById('est-' + taskId)?.value || null;
 
   const folderVal = document.getElementById('folder-' + taskId)?.value || null;
 
@@ -1119,11 +1149,28 @@ async function saveDetails(taskId){
 
     await renderListByFilter();
   }catch(e){
+    let message = 'Could not save task. Please check the task details.';
+
+    try{
+      const raw = String(e.message || '');
+      const jsonStart = raw.indexOf('{');
+      if(jsonStart >= 0){
+        const parsed = JSON.parse(raw.slice(jsonStart));
+        if(parsed.planned_date){
+          message = parsed.planned_date[0];
+        }else if(parsed.due_date){
+          message = parsed.due_date[0];
+        }else if(parsed.detail){
+          message = parsed.detail;
+        }
+      }
+    }catch(parseErr){}
+
     if(err){
-      err.textContent = 'Due date cannot be before planned date.';
+      err.textContent = message;
       err.classList.remove('d-none');
     }else{
-      alert('Due date cannot be before planned date.');
+      alert(message);
     }
   }
 }

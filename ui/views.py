@@ -60,6 +60,18 @@ class UserHomeView(LoginRequiredMixin, TemplateView):
     template_name = "ui/user_home.html"
     login_url = "ui:login"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        context["user_first_name"] = (
+            user.first_name.strip()
+            if user.first_name
+            else user.username
+        )
+
+        return context
+
 @ratelimit(key="ip", rate="10/m", method="POST", block=True)
 def login_view(request):
     if request.user.is_authenticated:

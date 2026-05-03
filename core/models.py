@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
+import uuid
 
 User = settings.AUTH_USER_MODEL
 
@@ -86,6 +87,15 @@ class Task(TimeStampedModel):
     completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     repeat_rule = models.CharField(max_length=20, choices=REPEAT_CHOICES, blank=True)
+    repeat_series_id = models.UUIDField(null=True, blank=True, db_index=True)
+    repeat_parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="repeat_instances",
+    )
+    repeat_generated_until = models.DateField(null=True, blank=True)
 
     class Meta:
         ordering = ['completed', 'due_date', '-created_at']
@@ -108,6 +118,9 @@ class Task(TimeStampedModel):
                 self.completed_at = timezone.now()
         else:
             self.completed_at = None
+
+        if self.repeat_rule and not self.repeat_series_id:
+            self.repeat_series_id = uuid.uuid4()
 
         super().save(*args, **kwargs)
 

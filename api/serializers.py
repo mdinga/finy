@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog, TaskNote
+from core.repeating import generate_repeating_tasks
 
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -77,30 +78,65 @@ class TaskSerializer(serializers.ModelSerializer):
         return ", ".join(obj.spaces.values_list('name', flat=True))
 
     def create(self, validated_data):
-        # Avoid duplicate user kwarg; the view will set user from request
         validated_data.pop('user', None)
 
         user = self.context['request'].user
         folder = validated_data.pop('folder', None)
+        spaces = validated_data.pop('spaces', [])
 
         if folder is None:
             try:
                 folder = Folder.objects.get(user=user, is_inbox=True)
             except Folder.DoesNotExist:
-                # FIX: use serializers.ValidationError (already imported via 'serializers')
                 raise serializers.ValidationError({'folder': 'Inbox folder not found for this user.'})
 
-        return Task.objects.create(user=user, folder=folder, **validated_data)
+        task = Task.objects.create(user=user, folder=folder, **validated_data)
+
+        if spaces:
+            task.spaces.set(spaces)
+
+        generate_repeating_tasks(task)
+
+        return task
+
+
+    def update(self, instance, validated_data):
+        spaces = validated_data.pop('spaces', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if spaces is not None:
+            instance.spaces.set(spaces)
+
+        generate_repeating_tasks(instance)
+
+        return instance
 
     def validate(self, data):
-        planned = data.get("planned_date")
-        due = data.get("due_date")
+        planned = data["planned_date"] if "planned_date" in data else None
+        due = data["due_date"] if "due_date" in data else None
+        repeat_rule = data["repeat_rule"] if "repeat_rule" in data else None
 
-        if planned and due:
-            if planned > due:
-                raise serializers.ValidationError(
-                    {"due_date": "Due date cannot be before planned date."}
-                )
+        if self.instance:
+            if "planned_date" not in data:
+                planned = self.instance.planned_date
+            if "due_date" not in data:
+                due = self.instance.due_date
+            if "repeat_rule" not in data:
+                repeat_rule = self.instance.repeat_rule
+
+        if planned and due and planned > due:
+            raise serializers.ValidationError(
+                {"due_date": "Due date cannot be before planned date."}
+            )
+
+        if repeat_rule and not planned:
+            raise serializers.ValidationError(
+                {"planned_date": "A repeating task must have a planned date."}
+            )
 
         return data
 

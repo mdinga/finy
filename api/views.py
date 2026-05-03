@@ -225,6 +225,27 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(qs, many=True).data)
 
 
+    def destroy(self, request, *args, **kwargs):
+        task = self.get_object()
+
+        if task.repeat_series_id:
+            anchor_date = task.planned_date
+
+            qs = self.get_queryset().filter(
+                repeat_series_id=task.repeat_series_id,
+                completed=False,
+            )
+
+            if anchor_date:
+                qs = qs.filter(planned_date__gte=anchor_date)
+
+            qs.delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return super().destroy(request, *args, **kwargs)
+
+
 class TimeLogViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     queryset = TimeLog.objects.select_related('task')
     serializer_class = TimeLogSerializer

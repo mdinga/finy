@@ -63,7 +63,10 @@ INSTALLED_APPS = [
     'ui',
 ]
 
-RATELIMIT_IP_META_KEY = "HTTP_X_FORWARDED_FOR"
+if DEBUG:
+    RATELIMIT_IP_META_KEY = "REMOTE_ADDR"
+else:
+    RATELIMIT_IP_META_KEY = "HTTP_X_FORWARDED_FOR"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
