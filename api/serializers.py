@@ -26,6 +26,42 @@ class SpaceSerializer(serializers.ModelSerializer):
         model = Space
         fields = ['id', 'name', 'category']
 
+    def _apply_prefix(self, name, category):
+        name = (name or "").strip().replace(" ", "_").lower()
+
+        prefix_map = {
+            "location": "at_",
+            "person": "with_",
+            "tools": "using_",
+            "tool": "using_",
+            "mood": "feeling_",
+        }
+
+        known_prefixes = ("at_", "with_", "using_", "feeling_")
+        category_name = (category.name or "").strip().lower()
+        prefix = prefix_map.get(category_name)
+
+        if not prefix:
+            return name
+
+        for old_prefix in known_prefixes:
+            if name.startswith(old_prefix):
+                name = name[len(old_prefix):]
+                break
+
+        return f"{prefix}{name}"
+
+    def validate(self, data):
+        category = data.get("category")
+
+        if self.instance:
+            category = category or self.instance.category
+
+        if "name" in data:
+            data["name"] = self._apply_prefix(data["name"], category)
+
+        return data
+
 
 
 

@@ -43,9 +43,14 @@ class FolderViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+
         if instance.is_inbox:
             raise ValidationError("Cannot delete Inbox.")
-        return super().destroy(request, *args, **kwargs)
+
+        Task.objects.filter(user=request.user, folder=instance).delete()
+        instance.delete()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SpaceCategoryViewSet(viewsets.ReadOnlyModelViewSet):  # read-only for now
@@ -223,6 +228,52 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         qs = qs.order_by("planned_date", "completed", "-created_at")
 
         return Response(self.get_serializer(qs, many=True).data)
+
+    def _logical_task_count(self, qs):
+        series_ids = set()
+        single_count = 0
+
+        for row in qs.values("id", "repeat_series_id"):
+            if row["repeat_series_id"]:
+                series_ids.add(str(row["repeat_series_id"]))
+            else:
+                single_count += 1
+
+        return single_count + len(series_ids)
+
+    @action(detail=False, methods=["get"], url_path="counts")
+    def counts(self, request):
+        today = timezone.localdate()
+        base = self.get_queryset()
+
+        active = base.filter(completed=False)
+        completed = base.filter(completed=True)
+        priority = active.filter(due_date__isnull=False, due_date__lte=today)
+
+        folders = Folder.objects.filter(user=request.user)
+        spaces = Space.objects.filter(user=request.user)
+
+        folder_counts = {}
+        for folder in folders:
+            folder_counts[str(folder.id)] = self._logical_task_count(
+                active.filter(folder=folder)
+            )
+
+        space_counts = {}
+        for space in spaces:
+            space_counts[str(space.id)] = self._logical_task_count(
+                active.filter(spaces=space)
+            )
+
+        inbox = folders.filter(is_inbox=True).first()
+
+        return Response({
+            "inbox": folder_counts.get(str(inbox.id), 0) if inbox else 0,
+            "completed": self._logical_task_count(completed),
+            "priority": self._logical_task_count(priority),
+            "folders": folder_counts,
+            "spaces": space_counts,
+        })
 
 
     def destroy(self, request, *args, **kwargs):

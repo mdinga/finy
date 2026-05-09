@@ -8,6 +8,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
+from core.signals import ensure_default_user_items
 
 
 
@@ -63,6 +64,7 @@ class UserHomeView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
+        ensure_default_user_items(user)
 
         context["user_first_name"] = (
             user.first_name.strip()

@@ -65,9 +65,15 @@ class Space(TimeStampedModel):
 
 class Task(TimeStampedModel):
     ESTIMATE_CHOICES = [
-        (10, '10 min'), (20, '20 min'), (30, '30 min'), (45, '45 min'),
-        (60, '1 h'), (120, '2 h'), (180, '3 h'), (240, '4 h'), (300, '5 h'), (360, '6 h'), (480, '8 h'),
-    ]
+    (10, "10 mins"),
+    (30, "30 mins"),
+    (60, "1 hour"),
+    (120, "2 hours"),
+    (240, "4 hours"),
+    (360, "6 hours"),
+    (361, "+6 hours"),
+]
+
     REPEAT_CHOICES = [
         ('EVERY_DAY', 'Every day'),
         ('EVERY_2_DAYS', 'Every 2 days'),

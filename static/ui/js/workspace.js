@@ -13,7 +13,8 @@ const API = (window.FINY && window.FINY.api) ? window.FINY.api : {
   today: '/api/tasks/today/',
   upcoming: '/api/tasks/upcoming/',
   spaceCategories: '/api/space-categories/',
-  plannedRange: '/api/tasks/planned-range/'
+  plannedRange: '/api/tasks/planned-range/',
+  counts: '/api/tasks/counts/'
 };
 
 function csrftoken(){ return document.getElementById('csrf')?.value || ''; }
@@ -77,7 +78,40 @@ function fmtMinutesHuman(mins){
   return `${r} min`;
 }
 
+function fmtEstimateLabel(mins){
+  const m = Number(mins || 0);
+  if(!m) return '';
+  if(m === 10) return '10 mins';
+  if(m === 30) return '30 mins';
+  if(m === 60) return '1 hour';
+  if(m === 120) return '2 hours';
+  if(m === 240) return '4 hours';
+  if(m === 360) return '6 hours';
+  if(m === 361) return '+6 hours';
+  return `${m} mins`;
+}
 
+function buildEstimateSelectHtml(taskId, selectedValue){
+  const options = [
+    ['', 'No estimate'],
+    [10, '10 mins'],
+    [30, '30 mins'],
+    [60, '1 hour'],
+    [120, '2 hours'],
+    [240, '4 hours'],
+    [360, '6 hours'],
+    [361, '+6 hours'],
+  ];
+
+  return `
+    <select class="form-select form-select-sm" id="est-${taskId}">
+      ${options.map(([value, label]) => {
+        const selected = String(value) === String(selectedValue || '') ? 'selected' : '';
+        return `<option value="${value}" ${selected}>${label}</option>`;
+      }).join('')}
+    </select>
+  `;
+}
 
 
 async function apiGet(url){
@@ -384,11 +418,19 @@ async function renderSidebar(){
   spacesCache = sRes.results || sRes || [];
 
   const folders = foldersCache.filter(f => !f.is_inbox).sort((a,b)=>a.name.localeCompare(b.name));
-  const folderCounts = Object.fromEntries(await Promise.all(folders.map(async f => {
-    const r = await apiGet(`${API.tasks}?folder=${f.id}&completed=false&page_size=1`);
-    const c = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
-    return [f.id, c];
-  })));
+    let taskCounts = {
+    inbox: 0,
+    completed: 0,
+    priority: 0,
+    folders: {},
+    spaces: {}
+    };
+
+    try{
+      taskCounts = await apiGet(API.counts);
+    }catch(e){}
+
+const folderCounts = taskCounts.folders || {};
 
   const folderList = document.getElementById('folderList');
   if(folderList){
@@ -410,11 +452,7 @@ async function renderSidebar(){
   }
 
   const spaces = (spacesCache || []).sort((a,b)=>a.name.localeCompare(b.name));
-  const spaceCounts = Object.fromEntries(await Promise.all(spaces.map(async s => {
-    const r = await apiGet(`${API.tasks}?spaces=${s.id}&completed=false&page_size=1`);
-    const c = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
-    return [s.id, c];
-  })));
+  const spaceCounts = taskCounts.spaces || {};
 
   const spaceList = document.getElementById('spaceList');
   if(spaceList){
@@ -435,25 +473,19 @@ async function renderSidebar(){
     )).join('');
   }
 
-  if(inboxId && els.inboxBadge){
-    const inboxRes = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&page_size=1`);
-    const inboxCount = typeof inboxRes.count === 'number' ? inboxRes.count : (inboxRes.results || inboxRes || []).length;
-    els.inboxBadge.textContent = String(inboxCount);
+  if(els.inboxBadge){
+    els.inboxBadge.textContent = String(taskCounts.inbox || 0);
   }
 
   const completedBadge = document.getElementById('completed-count-badge');
-    if(completedBadge){
-      const r = await apiGet(`${API.tasks}?completed=true&page_size=1`);
-      const c = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
-      completedBadge.textContent = String(c);
-    }
+  if(completedBadge){
+    completedBadge.textContent = String(taskCounts.completed || 0);
+  }
 
   const priorityBadge = document.getElementById('priority-count-badge');
-    if(priorityBadge){
-      const r = await apiGet(API.priority);
-      const c = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
-      priorityBadge.textContent = String(c);
-    }
+  if(priorityBadge){
+    priorityBadge.textContent = String(taskCounts.priority || 0);
+  }
 
 
 }
@@ -808,7 +840,7 @@ function buildTaskCard(t){
     overdue = dueDate < today;
   }
   const planned = t.planned_date ? fmtUIDateFromISO(t.planned_date) : '';
-  const est = t.estimated_minutes ? `${t.estimated_minutes} min` : '';
+  const est = t.estimated_minutes ? fmtEstimateLabel(t.estimated_minutes) : '';
   const completedAt = t.completed_at ? fmtUIDateTimeFromISO(t.completed_at) : '';
 
   const folderName = (t.folder_name || '').trim();
@@ -931,8 +963,8 @@ function buildDetailsPanel(t){
             <input class="form-control form-control-sm" id="due-${t.id}" type="date" value="${esc(due)}" ${repeat ? 'disabled' : ''}>
           </div>
           <div class="col-12 col-md-4">
-            <label class="form-label small">Estimated minutes</label>
-            <input class="form-control form-control-sm" id="est-${t.id}" type="number" min="0" value="${esc(String(est))}">
+            <label class="form-label small">Estimated time</label>
+            ${buildEstimateSelectHtml(t.id, est)}
           </div>
 
           <div class="col-12 col-md-6">
@@ -1338,30 +1370,189 @@ async function deleteAction(taskId, actionId){
 }
 window.deleteAction = deleteAction;
 
-/* Folder edit and delete stubs, keep your existing behavior if you already had these in template */
+/* Folder and space edit/delete */
+
 async function deleteFolder(folderId){
+  const folder = (foldersCache || []).find(f => String(f.id) === String(folderId));
+  const folderName = folder ? folder.name : 'this folder';
+
+  let taskCount = 0;
+
+  try{
+    const r = await apiGet(`${API.tasks}?folder=${folderId}&page_size=1`);
+    taskCount = typeof r.count === 'number' ? r.count : (r.results || r || []).length;
+  }catch(e){}
+
+  const msg =
+    `WARNING: You are about to delete the folder "${folderName}".\n\n` +
+    `This folder currently has ${taskCount} task(s).\n\n` +
+    `If you continue, Finy will permanently delete:\n` +
+    `• the folder\n` +
+    `• all tasks inside the folder\n` +
+    `• their notes, next actions and attachments\n\n` +
+    `This cannot be undone.\n\n` +
+    `Click OK to permanently delete, or Cancel to keep it.`;
+
+  if(!confirm(msg)) return;
+
   await apiSend(`${API.folders}${folderId}/`, 'DELETE', null);
   await renderSidebar();
   await showInbox();
 }
 window.deleteFolder = deleteFolder;
 
-async function deleteSpace(spaceId){
-  await apiSend(`${API.spaces}${spaceId}/`, 'DELETE', null);
-  await renderSidebar();
-  await showInbox();
-}
-window.deleteSpace = deleteSpace;
-
 function startEditFolder(folderId){
-  alert('Edit folder UI not moved yet. If you want, tell me your current edit flow and I will wire it here.');
+  const folder = (foldersCache || []).find(f => String(f.id) === String(folderId));
+  if(!folder) return;
+
+  const li = document.querySelector(`#folderList li[data-id="${folderId}"]`);
+  if(!li) return;
+
+  li.innerHTML = `
+    <div class="w-100">
+      <input id="edit-folder-name-${folderId}" class="form-control form-control-sm mb-2" value="${esc(folder.name || '')}">
+      <div class="d-flex gap-2 justify-content-end">
+        <button class="btn btn-plain btn-sm" onclick="cancelEditFolder()">Cancel</button>
+        <button class="btn btn-plain btn-sm" onclick="saveFolder('${folderId}')">Save</button>
+      </div>
+      <div id="edit-folder-error-${folderId}" class="text-danger small mt-1 d-none"></div>
+    </div>
+  `;
+
+  document.getElementById(`edit-folder-name-${folderId}`)?.focus();
 }
 window.startEditFolder = startEditFolder;
 
+async function saveFolder(folderId){
+  const name = (document.getElementById(`edit-folder-name-${folderId}`)?.value || '').trim();
+  const err = document.getElementById(`edit-folder-error-${folderId}`);
+
+  if(!name){
+    if(err){
+      err.textContent = 'Folder name is required.';
+      err.classList.remove('d-none');
+    }
+    return;
+  }
+
+  try{
+    await apiSend(`${API.folders}${folderId}/`, 'PATCH', { name });
+    await renderSidebar();
+  }catch(e){
+    if(err){
+      err.textContent = 'Could not update folder. The name may already exist.';
+      err.classList.remove('d-none');
+    }
+  }
+}
+window.saveFolder = saveFolder;
+
+async function cancelEditFolder(){
+  await renderSidebar();
+}
+window.cancelEditFolder = cancelEditFolder;
+
+async function deleteSpace(spaceId){
+  const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));
+  const spaceName = space ? space.name : 'this space';
+
+  let taskCount = 0;
+
+  try{
+    const r = await apiGet(`${API.tasks}?spaces=${spaceId}&page_size=1`);
+    taskCount = typeof r.count === 'number'
+      ? r.count
+      : (r.results || r || []).length;
+  }catch(e){}
+
+  const msg =
+    `WARNING: You are about to delete the space "${spaceName}".\n\n` +
+    `This space is currently linked to ${taskCount} task(s).\n\n` +
+    `Deleting the space will:\n` +
+    `• permanently remove the space\n` +
+    `• remove the space from all linked tasks\n\n` +
+    `The tasks themselves will NOT be deleted.\n\n` +
+    `Click OK to continue, or Cancel to keep it.`;
+
+  if(!confirm(msg)) return;
+
+  await apiSend(`${API.spaces}${spaceId}/`, 'DELETE', null);
+
+  await renderSidebar();
+  await renderListByFilter();
+}
+window.deleteSpace = deleteSpace;
+
 function startEditSpace(spaceId){
-  alert('Edit space UI not moved yet. If you want, tell me your current edit flow and I will wire it here.');
+  const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));
+  if(!space) return;
+
+  const li = document.querySelector(`#spaceList li[data-id="${spaceId}"]`);
+  if(!li) return;
+
+  const categoryOptions = (categoriesCache || [])
+    .map(c => {
+      const selected = String(c.id) === String(space.category) ? 'selected' : '';
+      return `<option value="${c.id}" ${selected}>${esc(c.name)}</option>`;
+    })
+    .join('');
+
+  li.innerHTML = `
+    <div class="w-100">
+      <input id="edit-space-name-${spaceId}" class="form-control form-control-sm mb-2" value="${esc(space.name || '')}">
+
+      <select id="edit-space-category-${spaceId}" class="form-select form-select-sm mb-2">
+        ${categoryOptions}
+      </select>
+
+      <div class="d-flex gap-2 justify-content-end">
+        <button class="btn btn-plain btn-sm" onclick="cancelEditSpace()">Cancel</button>
+        <button class="btn btn-plain btn-sm" onclick="saveSpace('${spaceId}')">Save</button>
+      </div>
+
+      <div id="edit-space-error-${spaceId}" class="text-danger small mt-1 d-none"></div>
+    </div>
+  `;
+
+  document.getElementById(`edit-space-name-${spaceId}`)?.focus();
 }
 window.startEditSpace = startEditSpace;
+
+async function saveSpace(spaceId){
+  const name = (document.getElementById(`edit-space-name-${spaceId}`)?.value || '').trim();
+  const category = document.getElementById(`edit-space-category-${spaceId}`)?.value || '';
+
+  const err = document.getElementById(`edit-space-error-${spaceId}`);
+
+  if(!name || !category){
+    if(err){
+      err.textContent = 'Name and category are required.';
+      err.classList.remove('d-none');
+    }
+    return;
+  }
+
+  try{
+    await apiSend(`${API.spaces}${spaceId}/`, 'PATCH', {
+      name,
+      category: parseInt(category, 10)
+    });
+
+    await renderSidebar();
+    await renderListByFilter();
+  }catch(e){
+    if(err){
+      err.textContent = 'Could not update space.';
+      err.classList.remove('d-none');
+    }
+  }
+}
+window.saveSpace = saveSpace;
+
+async function cancelEditSpace(){
+  await renderSidebar();
+}
+window.cancelEditSpace = cancelEditSpace;
 
 function fmtTodayLabel(){
   return fmtUIDate(new Date());
