@@ -98,7 +98,7 @@ def login_view(request):
     return render(request, "ui/login.html", {"form": form})
 
 
-@ratelimit(key="ip", rate="5/h", method="POST", block=True)
+
 def register_view(request):
     if request.user.is_authenticated:
         return redirect("ui:user_home")
