@@ -216,7 +216,7 @@ function wireButtons(){
   });
 
   document.getElementById('btnInbox')?.addEventListener('click', showInbox);
-  document.getElementById('btnPriority')?.addEventListener('click', showPriority);
+  document.getElementById('btnOverdue')?.addEventListener('click', showOverdue);
   document.getElementById('btnShowToday')?.addEventListener('click', showToday);
   document.getElementById('btnShowUpcoming')?.addEventListener('click', showUpcoming);
   document.getElementById('btnCompleted')?.addEventListener('click', showCompleted);
@@ -482,9 +482,9 @@ const folderCounts = taskCounts.folders || {};
     completedBadge.textContent = String(taskCounts.completed || 0);
   }
 
-  const priorityBadge = document.getElementById('priority-count-badge');
-  if(priorityBadge){
-    priorityBadge.textContent = String(taskCounts.priority || 0);
+  const overdueBadge = document.getElementById('overdue-count-badge');
+  if(overdueBadge){
+    overdueBadge.textContent = String(taskCounts.priority || 0);
   }
 
 
@@ -562,33 +562,33 @@ function populateTaskFilterControls(){
   }
 }
 
-  function updateTaskFilterBar(){
-    if(!els.taskFilterBar) return;
+    function updateTaskFilterBar(){
+      if(!els.taskFilterBar) return;
 
-    const isFolder = activeFilter?.type === 'folder';
-    const isSpace = activeFilter?.type === 'space';
-    const isPriority = activeFilter?.type === 'priority';
+      const isFolder = activeFilter?.type === 'folder';
+      const isSpace = activeFilter?.type === 'space';
+      const isOverdue = activeFilter?.type === 'overdue';
 
-    if(!isFolder && !isSpace && !isPriority){
-      els.taskFilterBar.classList.add('d-none');
-      return;
+      if(!isFolder && !isSpace && !isOverdue){
+        els.taskFilterBar.classList.add('d-none');
+        return;
+      }
+
+      populateTaskFilterControls();
+
+      els.taskFilterBar.classList.remove('d-none');
+
+      if(els.filterSpaceWrap){
+        els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isOverdue));
+      }
+
+      if(els.filterFolderWrap){
+        els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isOverdue));
+      }
     }
-
-    populateTaskFilterControls();
-
-    els.taskFilterBar.classList.remove('d-none');
-
-    if(els.filterSpaceWrap){
-      els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isPriority));
-    }
-
-    if(els.filterFolderWrap){
-      els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isPriority));
-    }
-  }
 
   async function applyTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'priority'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['folder', 'space', 'overdue'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: els.filterSpace?.value || '',
@@ -600,7 +600,7 @@ function populateTaskFilterControls(){
   }
 
   async function clearTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'priority'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['folder', 'space', 'overdue'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: '',
@@ -648,16 +648,17 @@ function populateTaskFilterControls(){
     activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
     await renderListByFilter();
   }
-  async function showPriority(){
+  async function showOverdue(){
     showListView();
     activeFilter = {
-      type:'priority',
+      type:'overdue',
       id:null,
-      name:'Priority',
-      extra: { space: '', folder: '', ordering: 'planned_date' }
+      name:'Overdue',
+      extra: { space: '', folder: '', ordering: 'due_date' }
     };
     await renderListByFilter();
   }
+
   async function showToday(){
     showListView();
     activeFilter = { type:'today', id:null, name:'Today' };
@@ -746,22 +747,13 @@ async function renderListByFilter(){
   let res;
   if(activeFilter.type === 'inbox'){
     res = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&ordering=due_date`);
-  } else if(activeFilter.type === 'priority'){
-  const extra = activeFilter.extra || {};
-  const params = new URLSearchParams();
+  } else if(activeFilter.type === 'overdue'){
+    res = await apiGet(API.priority);
 
-  params.set('completed', 'false');
+    const todayIso = toISODate(new Date());
+    const list = res.results || res || [];
 
-  if(extra.space) params.set('spaces', extra.space);
-  if(extra.folder) params.set('folder', extra.folder);
-
-  params.set('ordering', extra.ordering || 'planned_date');
-
-  res = await apiGet(`${API.tasks}?${params.toString()}`);
-
-  const todayIso = toISODate(new Date());
-  const list = res.results || res || [];
-  res = list.filter(t => t.due_date && t.due_date <= todayIso && !t.completed);
+    res = list.filter(t => t.due_date && t.due_date < todayIso && !t.completed);
   } else if(activeFilter.type === 'today'){
     res = await apiGet(API.today);
   } else if(activeFilter.type === 'upcoming'){
@@ -872,7 +864,14 @@ function buildTaskCard(t){
       <div class="d-flex justify-content-between align-items-start gap-2 task-toggle" data-task-id="${t.id}">
         <div class="flex-grow-1">
           <div class="d-flex align-items-center gap-2">
-            <input type="checkbox" ${t.completed ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleComplete(${t.id})">
+          <input
+            type="checkbox"
+            class="task-complete-btn"
+            ${t.completed ? 'checked' : ''}
+            title="Mark complete"
+            onclick="event.stopPropagation()"
+            onchange="toggleComplete(${t.id})"
+            >
             <h3 class="m-0 ${t.completed ? 'text-decoration-line-through text-muted' : ''}">
               ${esc(t.title)}
             </h3>
@@ -913,7 +912,7 @@ function buildDetailsPanel(t){
 
   return `
     <div class="border-top pt-3">
-      <div class="d-flex gap-2 mb-3">
+      <div class="task-tabs-bar">
         <button class="btn btn-plain btn-sm tab-btn active" onclick="showTab(${t.id}, 'details')">Details</button>
         <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'actions')">Next Actions</button>
         <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'notes')">Notes</button>

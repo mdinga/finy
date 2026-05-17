@@ -7,13 +7,15 @@
       <img src="{% static 'ui/images/Finy_logo_1.png' %}" alt="Finy Logo" height="72">
     </a>
 
+    <div class="flex-grow-1"></div>
+
     <!-- RIGHT: Actions -->
     <div class="d-flex gap-2 align-items-center">
-      <button id="btnShowToday" class="btn btn-sm topbar-btn topbar-btn-today">Today</button>
-      <button id="btnShowUpcoming" class="btn btn-sm topbar-btn topbar-btn-upcoming">Upcoming</button>
+      <button id="btnShowToday" class="btn btn-plain btn-sm">Today</button>
+      <button id="btnShowUpcoming" class="btn btn-plain btn-sm">Upcoming</button>
 
       <div class="dropdown">
-        <button class="btn btn-sm dropdown-toggle topbar-btn topbar-btn-quick" data-bs-toggle="dropdown">
+        <button class="btn btn-plain btn-sm dropdown-toggle" data-bs-toggle="dropdown">
           Quick create
         </button>
 
@@ -50,13 +52,10 @@
     </div>
         <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2">
           {% csrf_token %}
-          <button type="submit" class="btn btn-sm topbar-btn topbar-btn-logout">
+          <button type="submit" class="btn btn-outline-secondary btn-sm">
             Logout
           </button>
         </form>
   </div>
 </header>
-
-<div class="workspace-title-strip">
-  {{ user_first_name }}'s workspace
-</div>
+<div class="workspace-title-strip">{{ user_first_name }}'s workspace</div>
