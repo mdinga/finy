@@ -484,7 +484,19 @@ const folderCounts = taskCounts.folders || {};
 
   const overdueBadge = document.getElementById('overdue-count-badge');
   if(overdueBadge){
-    overdueBadge.textContent = String(taskCounts.priority || 0);
+    try{
+      const priorityTasks = await apiGet(API.priority);
+      const todayIso = toISODate(new Date());
+      const list = priorityTasks.results || priorityTasks || [];
+
+      const overdueCount = list.filter(t =>
+        t.due_date && t.due_date < todayIso && !t.completed
+      ).length;
+
+      overdueBadge.textContent = String(overdueCount);
+    }catch(e){
+      overdueBadge.textContent = '0';
+    }
   }
 
 
@@ -884,7 +896,7 @@ function buildTaskCard(t){
             ${planned ? `<span class="me-2">🗓️ ${esc(planned)}</span>` : ''}
             ${!t.completed && due ? `<span class="me-2">⏰ ${esc(due)}</span>` : ''}
             ${est ? `<span class="me-2">⏳ ${esc(est)}</span>` : ''}
-            ${t.is_priority ? `<span class="badge text-bg-warning">Priority</span>` : ''}
+            ${t.due_date && t.due_date === toISODate(new Date()) && !t.completed ? `<span class="badge text-bg-warning">Priority</span>` : ''}
             ${overdue ? `<span class="badge text-bg-danger ms-2">Overdue</span>` : ''}
             ${t.completed && completedAt ? `<span class="me-2">✅ Completed ${esc(completedAt)}</span>` : ''}
           </div>
