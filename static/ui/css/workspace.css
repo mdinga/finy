@@ -676,60 +676,6 @@ body.workspace-page main.container-fluid {
   border: 1px solid rgba(255, 193, 7, 0.40) !important;
 }
 
-/* Corporate sidebar refinements */
-
-.workspace-page .sidebar-card .list-group-item,
-.workspace-page .sidebar-card .accordion-item {
-  border: 2px solid #ffffff !important;
-}
-
-.workspace-page .sidebar-card .list-group-item + .list-group-item {
-  border-top-width: 0 !important;
-}
-
-.workspace-page .sidebar-card .accordion-button {
-  background: #000000 !important;
-  color: #ffffff !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.workspace-page .sidebar-card .accordion-button:not(.collapsed) {
-  background: #000000 !important;
-  color: #ffffff !important;
-  box-shadow: none !important;
-}
-
-.workspace-page .sidebar-card .accordion-button::after {
-  filter: brightness(0) invert(1);
-}
-
-.workspace-page .sidebar-card .accordion-body {
-  background: #000000 !important;
-  color: #ffffff !important;
-}
-
-.workspace-page .sidebar-card #folderList .list-group-item,
-.workspace-page .sidebar-card #spaceList .list-group-item {
-  background: #d9d9d9 !important;
-  color: #000000 !important;
-  border: 1px solid #000000 !important;
-}
-
-.workspace-page .sidebar-card #folderList .btn-link,
-.workspace-page .sidebar-card #spaceList .btn-link,
-.workspace-page .sidebar-card #folderList .list-title-btn,
-.workspace-page .sidebar-card #spaceList .list-title-btn {
-  color: #000000 !important;
-}
-
-.workspace-page .sidebar-card #folderList .count-badge,
-.workspace-page .sidebar-card #spaceList .count-badge {
-  background: #98c03c !important;
-  color: #000000 !important;
-  border: none !important;
-}
-
 /* =========================================================
    FINY LANDING PAGE
    Scoped to body.landing-page so it does not break workspace

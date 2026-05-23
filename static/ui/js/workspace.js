@@ -482,7 +482,7 @@ const folderCounts = taskCounts.folders || {};
   if(completedBadge){
     completedBadge.textContent = String(taskCounts.completed || 0);
   }
-  
+
   const priorityBadge = document.getElementById('priority-count-badge');
   if(priorityBadge){
     priorityBadge.textContent = String(taskCounts.priority || 0);
@@ -1234,7 +1234,12 @@ async function toggleComplete(taskId){
   const scrollY = window.scrollY;
 
   await apiSend(`${API.tasks}${taskId}/complete/`, 'POST', {});
-  await renderListByFilter();
+
+  if(activeView === 'calendar'){
+    await renderCalendarRange();
+  } else {
+    await renderListByFilter();
+  }
 
   window.scrollTo({
     top: scrollY,
