@@ -373,6 +373,11 @@ body.workspace-page main.container-fluid {
   font-size: 0.84rem;
 }
 
+.note-text-display {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* Task cards */
 
 .workspace-page .task-card {
@@ -657,6 +662,18 @@ body.workspace-page main.container-fluid {
   background: #a94442 !important;
   color: #ffffff !important;
   border: none !important;
+}
+
+.priority-badge {
+  background: rgba(152, 192, 60, 0.20) !important;
+  color: #3f5416 !important;
+  border: 1px solid rgba(152, 192, 60, 0.35) !important;
+}
+
+.due-today-badge {
+  background: rgba(255, 193, 7, 0.22) !important;
+  color: #7a5200 !important;
+  border: 1px solid rgba(255, 193, 7, 0.40) !important;
 }
 
 /* Corporate sidebar refinements */

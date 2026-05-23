@@ -155,15 +155,48 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         st.save(update_fields=["completed", "updated_at"])
         return Response(SubtaskSerializer(st).data)
 
+    @action(detail=False, methods=["get"], url_path="overdue")
+    def overdue(self, request):
+        today = timezone.localdate()
 
+        qs = (
+            self.get_queryset()
+            .filter(
+                completed=False,
+                due_date__isnull=False,
+                due_date__lt=today,
+            )
+            .order_by("due_date")
+        )
+
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
+        return Response(self.get_serializer(qs, many=True).data)
 
     @action(detail=False, methods=["get"], url_path="priority")
     def priority(self, request):
         today = timezone.localdate()
-        qs = self.get_queryset().filter(completed=False, due_date__isnull=False, due_date__lte=today).order_by("due_date")
+
+        qs = (
+            self.get_queryset()
+            .filter(
+                completed=False,
+                planned_date__isnull=False,
+                planned_date__lte=today,
+            )
+            .exclude(
+                due_date__isnull=False,
+                due_date__lt=today,
+            )
+            .order_by("planned_date", "due_date")
+        )
+
         page = self.paginate_queryset(qs)
         if page is not None:
             return self.get_paginated_response(self.get_serializer(page, many=True).data)
+
         return Response(self.get_serializer(qs, many=True).data)
 
     @action(detail=False, methods=["get"], url_path="today")
@@ -248,7 +281,17 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
         active = base.filter(completed=False)
         completed = base.filter(completed=True)
-        priority = active.filter(due_date__isnull=False, due_date__lte=today)
+
+        overdue = active.filter(
+            due_date__isnull=False,
+            due_date__lt=today
+        )
+
+        priority = (
+            active
+            .filter(planned_date__isnull=False, planned_date__lte=today)
+            .exclude(due_date__isnull=False, due_date__lt=today)
+        )
 
         folders = Folder.objects.filter(user=request.user)
         spaces = Space.objects.filter(user=request.user)
@@ -270,9 +313,10 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         return Response({
             "inbox": folder_counts.get(str(inbox.id), 0) if inbox else 0,
             "completed": self._logical_task_count(completed),
-            "priority": self._logical_task_count(priority),
+            "priority": priority.count(),
             "folders": folder_counts,
             "spaces": space_counts,
+            "overdue": overdue.count(),
         })
 
 

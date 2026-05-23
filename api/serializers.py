@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog, TaskNote
 from core.repeating import generate_repeating_tasks
+from django.utils import timezone
 
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -74,7 +75,8 @@ class TaskNoteSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "task", "created_at", "created_at_display"]
 
     def get_created_at_display(self, obj):
-        return obj.created_at.strftime("%d %b '%y %H:%M")
+        local_created_at = timezone.localtime(obj.created_at)
+        return local_created_at.strftime("%d %b '%y %H:%M")
 
 
 class SubtaskSerializer(serializers.ModelSerializer):

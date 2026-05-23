@@ -14,7 +14,8 @@ const API = (window.FINY && window.FINY.api) ? window.FINY.api : {
   upcoming: '/api/tasks/upcoming/',
   spaceCategories: '/api/space-categories/',
   plannedRange: '/api/tasks/planned-range/',
-  counts: '/api/tasks/counts/'
+  counts: '/api/tasks/counts/',
+  overdue: '/api/tasks/overdue/',
 };
 
 function csrftoken(){ return document.getElementById('csrf')?.value || ''; }
@@ -148,6 +149,7 @@ const els = {
   newTaskTitle: document.getElementById('nt-title'),
   inboxBadge: document.getElementById('inbox-count-badge'),
   listTitle: document.getElementById('list-title'),
+  listHelperText: document.getElementById('list-helper-text'),
   globalSearchForm: document.getElementById('global-search-form'),
   globalSearchInput: document.getElementById('global-search-input'),
   clearSearchBtn: document.getElementById('clear-search-btn'),
@@ -217,8 +219,7 @@ function wireButtons(){
 
   document.getElementById('btnInbox')?.addEventListener('click', showInbox);
   document.getElementById('btnOverdue')?.addEventListener('click', showOverdue);
-  document.getElementById('btnShowToday')?.addEventListener('click', showToday);
-  document.getElementById('btnShowUpcoming')?.addEventListener('click', showUpcoming);
+  document.getElementById('btnPriority')?.addEventListener('click', showPriority);
   document.getElementById('btnCompleted')?.addEventListener('click', showCompleted);
 
   document.getElementById('btnCalendar')?.addEventListener('click', showCalendar);
@@ -481,22 +482,15 @@ const folderCounts = taskCounts.folders || {};
   if(completedBadge){
     completedBadge.textContent = String(taskCounts.completed || 0);
   }
+  
+  const priorityBadge = document.getElementById('priority-count-badge');
+  if(priorityBadge){
+    priorityBadge.textContent = String(taskCounts.priority || 0);
+  }
 
   const overdueBadge = document.getElementById('overdue-count-badge');
   if(overdueBadge){
-    try{
-      const priorityTasks = await apiGet(API.priority);
-      const todayIso = toISODate(new Date());
-      const list = priorityTasks.results || priorityTasks || [];
-
-      const overdueCount = list.filter(t =>
-        t.due_date && t.due_date < todayIso && !t.completed
-      ).length;
-
-      overdueBadge.textContent = String(overdueCount);
-    }catch(e){
-      overdueBadge.textContent = '0';
-    }
+    overdueBadge.textContent = String(taskCounts.overdue || 0);
   }
 
 
@@ -580,8 +574,9 @@ function populateTaskFilterControls(){
       const isFolder = activeFilter?.type === 'folder';
       const isSpace = activeFilter?.type === 'space';
       const isOverdue = activeFilter?.type === 'overdue';
+      const isPriority = activeFilter?.type === 'priority';
 
-      if(!isFolder && !isSpace && !isOverdue){
+      if(!isFolder && !isSpace && !isOverdue && !isPriority){
         els.taskFilterBar.classList.add('d-none');
         return;
       }
@@ -591,16 +586,16 @@ function populateTaskFilterControls(){
       els.taskFilterBar.classList.remove('d-none');
 
       if(els.filterSpaceWrap){
-        els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isOverdue));
+        els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isOverdue || isPriority));
       }
 
       if(els.filterFolderWrap){
-        els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isOverdue));
+        els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isOverdue || isPriority));
       }
     }
 
   async function applyTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'overdue'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: els.filterSpace?.value || '',
@@ -612,7 +607,7 @@ function populateTaskFilterControls(){
   }
 
   async function clearTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'overdue'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: '',
@@ -671,16 +666,17 @@ function populateTaskFilterControls(){
     await renderListByFilter();
   }
 
-  async function showToday(){
-    showListView();
-    activeFilter = { type:'today', id:null, name:'Today' };
-    await renderListByFilter();
-  }
-  async function showUpcoming(){
-    showListView();
-    activeFilter = { type:'upcoming', id:null, name:'Upcoming' };
-    await renderListByFilter();
-  }
+    async function showPriority(){
+      showListView();
+      activeFilter = {
+        type:'priority',
+        id:null,
+        name:'Priority Tasks',
+        extra: { space: '', folder: '', ordering: 'planned_date' }
+      };
+      await renderListByFilter();
+    }
+
   async function showCompleted(){
     showListView();
     activeFilter = { type:'completed', id:null, name:'Completed Tasks' };
@@ -710,10 +706,25 @@ async function createFolder(nameId, descId){
   if(!name) return;
 
   await apiSend(API.folders, 'POST', { name, description });
+
   if(nameEl) nameEl.value = '';
   if(descEl) descEl.value = '';
+
   document.getElementById('addFolderRow')?.classList.add('d-none');
+
+  const quickCreateDropdown = document.querySelector('.topbar-btn-quick')?.closest('.dropdown');
+  const dropdownToggle = quickCreateDropdown?.querySelector('[data-bs-toggle="dropdown"]');
+
+  if(dropdownToggle && window.bootstrap){
+    const dropdown = window.bootstrap.Dropdown.getOrCreateInstance(dropdownToggle);
+    dropdown.hide();
+  }
+
   await renderSidebar();
+
+  if(activeFilter?.type === 'folder' || activeFilter?.type === 'space' || activeFilter?.type === 'overdue'){
+    await renderListByFilter();
+  }
 }
 window.createFolder = createFolder;
 
@@ -742,34 +753,102 @@ async function createSpace(nameId, catSelectId){
 }
 window.createSpace = createSpace;
 
+
+function getHelperTextForFilter(){
+  if(!activeFilter) return 'These are your tasks.';
+
+  if(activeFilter.type === 'priority'){
+    return 'These tasks require your attention now. They include tasks planned for today, tasks planned earlier that are still incomplete, and tasks due today.';
+  }
+
+  if(activeFilter.type === 'overdue'){
+    return 'These tasks have passed their due date and require urgent attention.';
+  }
+
+  if(activeFilter.type === 'inbox'){
+    return 'These are unprocessed tasks. Review them, assign folders, spaces and dates, then move them into your system.';
+  }
+
+  if(activeFilter.type === 'completed'){
+    return 'These are tasks you have completed.';
+  }
+
+  if(activeFilter.type === 'folder'){
+    return 'These are active tasks in this folder. Use spaces, dates and sorting to decide what to work on next.';
+  }
+
+  if(activeFilter.type === 'space'){
+    return 'These are active tasks linked to this space. This helps you focus on what you can do in this context.';
+  }
+
+  if(activeFilter.type === 'search'){
+    return 'These are tasks matching your search.';
+  }
+
+  return 'These are your tasks.';
+}
+
 /* List rendering */
+function applyClientTaskFilters(tasks){
+  const extra = activeFilter?.extra || {};
+  let filtered = Array.isArray(tasks) ? tasks.slice() : [];
+
+  if(extra.space){
+    filtered = filtered.filter(t =>
+      Array.isArray(t.spaces) && t.spaces.map(String).includes(String(extra.space))
+    );
+  }
+
+  if(extra.folder){
+    filtered = filtered.filter(t =>
+      String(t.folder || '') === String(extra.folder)
+    );
+  }
+
+  const ordering = extra.ordering || '';
+
+  filtered.sort((a, b) => {
+    if(ordering === 'estimated_minutes'){
+      const av = a.estimated_minutes || Number.POSITIVE_INFINITY;
+      const bv = b.estimated_minutes || Number.POSITIVE_INFINITY;
+      return av - bv;
+    }
+
+    if(ordering === 'due_date'){
+      const av = a.due_date || '9999-12-31';
+      const bv = b.due_date || '9999-12-31';
+      return av.localeCompare(bv);
+    }
+
+    const av = a.planned_date || '9999-12-31';
+    const bv = b.planned_date || '9999-12-31';
+    return av.localeCompare(bv);
+  });
+
+  return filtered;
+}
+
+
+
 async function renderListByFilter(){
   showListView();
 
   if(els.listTitle){
-    if(activeFilter?.type === 'today'){
-      els.listTitle.textContent = `Today · ${fmtTodayLabel()}`;
-    } else {
-      els.listTitle.textContent = activeFilter?.name || 'Tasks';
-    }
+    els.listTitle.textContent = activeFilter?.name || 'Tasks';
   }
 
+  if(els.listHelperText){
+    els.listHelperText.textContent = getHelperTextForFilter();
+  }
   updateTaskFilterBar();
 
   let res;
   if(activeFilter.type === 'inbox'){
     res = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'overdue'){
+    res = await apiGet(API.overdue);
+  } else if(activeFilter.type === 'priority'){
     res = await apiGet(API.priority);
-
-    const todayIso = toISODate(new Date());
-    const list = res.results || res || [];
-
-    res = list.filter(t => t.due_date && t.due_date < todayIso && !t.completed);
-  } else if(activeFilter.type === 'today'){
-    res = await apiGet(API.today);
-  } else if(activeFilter.type === 'upcoming'){
-    res = await apiGet(API.upcoming);
   } else if(activeFilter.type === 'folder'){
     const extra = activeFilter.extra || {};
     const params = new URLSearchParams();
@@ -805,8 +884,17 @@ async function renderListByFilter(){
 
 
   let tasks = Array.isArray(res) ? res : (res.results || res || []);
+
+  if(activeFilter.type === 'completed'){
+    tasks = tasks.filter(t => t.completed);
+  }
+
   window.currentTasks = tasks;
-  if(activeFilter.type === 'completed') tasks = tasks.filter(t => t.completed);
+  updateTaskFilterBar();
+
+  if(['priority', 'overdue', 'folder', 'space'].includes(activeFilter.type)){
+    tasks = applyClientTaskFilters(tasks);
+  }
 
   renderTasks(tasks);
   await renderSidebar();
@@ -835,14 +923,19 @@ function buildTaskCard(t){
   wrap.className = 'card task-card mb-2' + (t.completed ? ' task-completed' : '');
 
   const due = t.due_date ? fmtUIDateFromISO(t.due_date) : '';
-  const today = new Date();
-  today.setHours(0,0,0,0);
+
+  const todayIso = toISODate(new Date());
+
   let overdue = false;
-  if (t.due_date && !t.completed) {
-    const dueDate = new Date(t.due_date);
-    dueDate.setHours(0,0,0,0);
-    overdue = dueDate < today;
+  let dueToday = false;
+  let priority = false;
+
+  if(!t.completed){
+    overdue = !!(t.due_date && t.due_date < todayIso);
+    dueToday = !!(t.due_date && t.due_date === todayIso);
+    priority = !!(t.planned_date && t.planned_date <= todayIso && !overdue);
   }
+
   const planned = t.planned_date ? fmtUIDateFromISO(t.planned_date) : '';
   const est = t.estimated_minutes ? fmtEstimateLabel(t.estimated_minutes) : '';
   const completedAt = t.completed_at ? fmtUIDateTimeFromISO(t.completed_at) : '';
@@ -896,8 +989,9 @@ function buildTaskCard(t){
             ${planned ? `<span class="me-2">🗓️ ${esc(planned)}</span>` : ''}
             ${!t.completed && due ? `<span class="me-2">⏰ ${esc(due)}</span>` : ''}
             ${est ? `<span class="me-2">⏳ ${esc(est)}</span>` : ''}
-            ${t.due_date && t.due_date === toISODate(new Date()) && !t.completed ? `<span class="badge text-bg-warning">Priority</span>` : ''}
-            ${overdue ? `<span class="badge text-bg-danger ms-2">Overdue</span>` : ''}
+            ${priority ? `<span class="badge priority-badge ms-2">Priority</span>` : ''}
+            ${dueToday ? `<span class="badge due-today-badge ms-2">Due Today</span>` : ''}
+            ${overdue ? `<span class="badge overdue-badge ms-2">Overdue</span>` : ''}
             ${t.completed && completedAt ? `<span class="me-2">✅ Completed ${esc(completedAt)}</span>` : ''}
           </div>
         </div>
@@ -1137,8 +1231,15 @@ async function openDetails(taskId){
 window.openDetails = openDetails;
 
 async function toggleComplete(taskId){
+  const scrollY = window.scrollY;
+
   await apiSend(`${API.tasks}${taskId}/complete/`, 'POST', {});
   await renderListByFilter();
+
+  window.scrollTo({
+    top: scrollY,
+    behavior: 'auto'
+  });
 }
 window.toggleComplete = toggleComplete;
 
@@ -1259,7 +1360,7 @@ async function loadNotes(taskId){
     wrap.innerHTML = `
       <div class="d-flex justify-content-between align-items-start gap-2">
         <div class="flex-grow-1">
-          <div id="note-text-display-${n.id}" class="small">${esc(n.text)}</div>
+          <div id="note-text-display-${n.id}" class="small note-text-display">${esc(n.text)}</div>
           <div class="text-muted small mt-1">${esc(created)}</div>
         </div>
         <div class="d-flex gap-2">
