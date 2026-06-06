@@ -161,7 +161,7 @@ body.workspace-page main.container-fluid {
   border-radius: 18px;
   background: #000000;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .workspace-page .sidebar-card .card-body {
@@ -208,6 +208,10 @@ body.workspace-page main.container-fluid {
 .workspace-page .sidebar-card .accordion-button {
   background: #000000;
   color: #ffffff;
+}
+
+.workspace-page .sidebar-card .accordion-button::after {
+  filter: brightness(0) invert(1);
 }
 
 .workspace-page .sidebar-card .accordion-body {
@@ -280,6 +284,16 @@ body.workspace-page main.container-fluid {
 .workspace-page .accordion-button:not(.collapsed) {
   background: linear-gradient(180deg, #fbfdf8 0%, #f3f8ea 100%);
   color: var(--ws-dark);
+}
+
+.workspace-page .sidebar-card .accordion-button:not(.collapsed) {
+  background: #000000;
+  color: #ffffff;
+}
+
+.workspace-page .sidebar-card .accordion-button::after,
+.workspace-page .sidebar-card .accordion-button:not(.collapsed)::after {
+  filter: brightness(0) invert(1);
 }
 
 .workspace-page .accordion-body {
@@ -463,8 +477,20 @@ body.workspace-page main.container-fluid {
   padding: 10px;
   border-radius: 12px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+@media (max-width: 576px) {
+  .task-tabs-bar {
+    flex-direction: column;
+  }
+
+  .task-tabs-bar .tab-btn {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .tab-btn {

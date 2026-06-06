@@ -7,8 +7,19 @@
       <img src="{% static 'ui/images/Finy_logo_1.png' %}" alt="Finy Logo" height="72">
     </a>
 
+    <button
+        class="btn btn-sm topbar-btn topbar-btn-quick d-lg-none"
+        type="button"
+        data-bs-toggle="collapse"
+        data-bs-target="#workspaceSidebar"
+        aria-controls="workspaceSidebar"
+        aria-expanded="false"
+        aria-label="Toggle menu">
+        ☰ Menu
+    </button>
+
     <!-- RIGHT: Actions -->
-    <div class="d-flex gap-2 align-items-center">
+    <div class="d-none d-lg-flex gap-2 align-items-center">
       <button
         id="btnHelpVideos"
         class="btn btn-sm topbar-btn topbar-btn-upcoming"
@@ -55,7 +66,7 @@
         </div>
       </div>
     </div>
-        <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2">
+        <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2 d-none d-lg-block">
           {% csrf_token %}
           <button type="submit" class="btn btn-sm topbar-btn topbar-btn-logout">
             Logout

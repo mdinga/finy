@@ -311,6 +311,7 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         inbox = folders.filter(is_inbox=True).first()
 
         return Response({
+            "all": self._logical_task_count(active),
             "inbox": folder_counts.get(str(inbox.id), 0) if inbox else 0,
             "completed": self._logical_task_count(completed),
             "priority": priority.count(),

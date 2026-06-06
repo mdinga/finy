@@ -1,21 +1,28 @@
 {% load static %}
 
-<aside class="col-12 col-lg-3">
+<aside id="workspaceSidebar" class="col-12 col-lg-3 collapse d-lg-block">
   <div class="card sidebar-card">
     <div class="card-body">
       <div class="text-uppercase text-muted small fw-semibold mb-2">Menu</div>
+      <div class="text-uppercase text-muted small fw-semibold mb-2">Start</div>
+
       <ul class="list-group mb-3">
-        <li class="list-group-item d-flex justify-content-between">
-          <button id="btnOverdue" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
-            Overdue
+        <li class="list-group-item">
+          <button id="btnCalendar" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+            My Day
           </button>
-            <span id="overdue-count-badge" class="badge rounded-pill overdue-badge">0</span>
         </li>
+      </ul>
+
+      <div class="text-uppercase text-muted small fw-semibold mb-2">Tasks</div>
+
+      <ul class="list-group mb-3">
+
         <li class="list-group-item d-flex justify-content-between">
-          <button id="btnPriority" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
-            Priority
+          <button id="btnAllTasks" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+            All Tasks
           </button>
-          <span id="priority-count-badge" class="badge rounded-pill count-badge">0</span>
+          <span id="all-tasks-count-badge" class="badge rounded-pill count-badge">0</span>
         </li>
         <li class="list-group-item d-flex justify-content-between">
           <button id="btnInbox" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
@@ -23,13 +30,19 @@
           </button>
           <span id="inbox-count-badge" class="badge rounded-pill count-badge">0</span>
         </li>
+
         <li class="list-group-item d-flex justify-content-between">
-          <div class="d-flex justify-content-between w-100 align-items-center">
-            <button id="btnCompleted" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
-              Completed Tasks
-            </button>
-            <span id="completed-count-badge" class="badge rounded-pill count-badge">0</span>
-        </div>
+          <button id="btnPriority" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+            Needs Attention
+          </button>
+          <span id="priority-count-badge" class="badge rounded-pill count-badge">0</span>
+        </li>
+
+        <li class="list-group-item d-flex justify-content-between">
+          <button id="btnOverdue" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+            Overdue
+          </button>
+          <span id="overdue-count-badge" class="badge rounded-pill overdue-badge">0</span>
         </li>
       </ul>
 
@@ -118,17 +131,54 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <ul class="list-group mt-3 mb-3">
-        <li class="list-group-item">
-          <button id="btnCalendar" class="btn btn-link btn-sm text-decoration-none text-reset">Calendar</button>
-        </li>
-      </ul>
+    <div class="px-3 mt-3">
+        <div class="text-uppercase text-muted small fw-semibold mb-2">
+            History
+        </div>
 
+        <ul class="list-group mb-3">
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <button id="btnCompleted"
+                        class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+                    Completed
+                </button>
+
+                <span id="completed-count-badge"
+                      class="badge rounded-pill count-badge">
+                    0
+                </span>
+            </li>
+        </ul>
+    </div>
+
+    <hr>
+
+    <div class="d-lg-none">
       <ul class="list-group">
+
         <li class="list-group-item">
-          <button id="btnSettings" class="btn btn-link btn-sm text-decoration-none text-reset">Settings</button>
+          <button
+            class="btn btn-link btn-sm text-decoration-none text-reset p-0"
+            type="button"
+            data-bs-toggle="modal"
+            data-bs-target="#helpVideosModal">
+            Help / Videos
+          </button>
         </li>
+
+        <li class="list-group-item">
+          <form method="post" action="{% url 'ui:logout' %}" class="m-0">
+            {% csrf_token %}
+            <button
+              type="submit"
+              class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+              Logout
+            </button>
+          </form>
+        </li>
+
       </ul>
     </div>
   </div>

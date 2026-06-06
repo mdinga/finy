@@ -217,6 +217,7 @@ function wireButtons(){
     document.getElementById('newSpaceName')?.focus();
   });
 
+  document.getElementById('btnAllTasks')?.addEventListener('click', showAllTasks);
   document.getElementById('btnInbox')?.addEventListener('click', showInbox);
   document.getElementById('btnOverdue')?.addEventListener('click', showOverdue);
   document.getElementById('btnPriority')?.addEventListener('click', showPriority);
@@ -270,7 +271,7 @@ async function renderCalendarRange(){
   const endISO = toISODate(end);
 
   if(calEls.calTitle){
-    calEls.calTitle.textContent = `Planned Tasks · ${fmtUIDate(start)} to ${fmtUIDate(end)}`;
+    calEls.calTitle.textContent = `My Day · ${fmtUIDate(start)} to ${fmtUIDate(end)}`;
   }
 
   let tasks = [];
@@ -474,6 +475,11 @@ const folderCounts = taskCounts.folders || {};
     )).join('');
   }
 
+  const allTasksBadge = document.getElementById('all-tasks-count-badge');
+  if(allTasksBadge){
+    allTasksBadge.textContent = String(taskCounts.all || 0);
+  }
+
   if(els.inboxBadge){
     els.inboxBadge.textContent = String(taskCounts.inbox || 0);
   }
@@ -650,6 +656,12 @@ function populateTaskFilterControls(){
 
   window.filterBySpace = filterBySpace;
 
+  async function showAllTasks(){
+    showListView();
+    activeFilter = { type:'all', id:null, name:'All Tasks' };
+    await renderListByFilter();
+  }
+
   async function showInbox(){
     showListView();
     activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
@@ -671,7 +683,7 @@ function populateTaskFilterControls(){
       activeFilter = {
         type:'priority',
         id:null,
-        name:'Priority Tasks',
+        name:'Needs Attention',
         extra: { space: '', folder: '', ordering: 'planned_date' }
       };
       await renderListByFilter();
@@ -757,8 +769,12 @@ window.createSpace = createSpace;
 function getHelperTextForFilter(){
   if(!activeFilter) return 'These are your tasks.';
 
+  if(activeFilter.type === 'all'){
+    return 'These are all your active tasks that still need to be completed.';
+  }
+
   if(activeFilter.type === 'priority'){
-    return 'These tasks require your attention now. They include tasks planned for today, tasks planned earlier that are still incomplete, and tasks due today.';
+    return 'These tasks were planned for today or earlier and still need a decision or action.';
   }
 
   if(activeFilter.type === 'overdue'){
@@ -840,10 +856,14 @@ async function renderListByFilter(){
   if(els.listHelperText){
     els.listHelperText.textContent = getHelperTextForFilter();
   }
+
   updateTaskFilterBar();
 
   let res;
-  if(activeFilter.type === 'inbox'){
+
+  if(activeFilter.type === 'all'){
+    res = await apiGet(`${API.tasks}?completed=false&ordering=planned_date`);
+  } else if(activeFilter.type === 'inbox'){
     res = await apiGet(`${API.tasks}?folder=${inboxId}&completed=false&ordering=due_date`);
   } else if(activeFilter.type === 'overdue'){
     res = await apiGet(API.overdue);
@@ -881,7 +901,6 @@ async function renderListByFilter(){
   } else {
     res = await apiGet(`${API.tasks}?completed=false&ordering=due_date`);
   }
-
 
   let tasks = Array.isArray(res) ? res : (res.results || res || []);
 
@@ -989,7 +1008,7 @@ function buildTaskCard(t){
             ${planned ? `<span class="me-2">🗓️ ${esc(planned)}</span>` : ''}
             ${!t.completed && due ? `<span class="me-2">⏰ ${esc(due)}</span>` : ''}
             ${est ? `<span class="me-2">⏳ ${esc(est)}</span>` : ''}
-            ${priority ? `<span class="badge priority-badge ms-2">Priority</span>` : ''}
+            ${priority ? `<span class="badge priority-badge ms-2">Needs Attention</span>` : ''}
             ${dueToday ? `<span class="badge due-today-badge ms-2">Due Today</span>` : ''}
             ${overdue ? `<span class="badge overdue-badge ms-2">Overdue</span>` : ''}
             ${t.completed && completedAt ? `<span class="me-2">✅ Completed ${esc(completedAt)}</span>` : ''}
@@ -1019,10 +1038,9 @@ function buildDetailsPanel(t){
   return `
     <div class="border-top pt-3">
       <div class="task-tabs-bar">
-        <button class="btn btn-plain btn-sm tab-btn active" onclick="showTab(${t.id}, 'details')">Details</button>
-        <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'actions')">Next Actions</button>
-        <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'notes')">Notes</button>
-        <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'attachments')">Attachments</button>
+      <button class="btn btn-plain btn-sm tab-btn active" onclick="showTab(${t.id}, 'details')">Details</button>
+      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'actions')">Next Actions</button>
+      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'notes')">Notes</button>
       </div>
 
       <div id="tab-${t.id}-details" class="tab-panel show">
@@ -1112,9 +1130,6 @@ function buildDetailsPanel(t){
         <div id="notes-list-${t.id}"></div>
       </div>
 
-      <div id="tab-${t.id}-attachments" class="tab-panel">
-        <div class="text-muted small">Attachments coming soon.</div>
-      </div>
     </div>
   `;
 }
@@ -1209,7 +1224,7 @@ function showTab(taskId, tab){
   if(panel) panel.classList.add('show');
 
   const buttons = root.querySelectorAll('.tab-btn');
-  const tabMap = ['details','actions','notes','attachments'];
+  const tabMap = ['details','actions','notes'];
   const idx = tabMap.indexOf(tab);
   if(idx >= 0 && buttons[idx]) buttons[idx].classList.add('active');
 
@@ -1296,7 +1311,12 @@ async function saveDetails(taskId){
       setTimeout(() => msg.classList.add('d-none'), 1200);
     }
 
-    await renderListByFilter();
+    if(activeView === 'calendar'){
+      await renderCalendarRange();
+    } else {
+      await renderListByFilter();
+    }
+
   }catch(e){
     let message = 'Could not save task. Please check the task details.';
 
