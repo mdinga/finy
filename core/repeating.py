@@ -1,10 +1,6 @@
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
-from django.utils import timezone
-from .models import Task
-
-
-REPEAT_MONTHS_AHEAD = 6
+from .models import Task, Subtask
 
 
 def get_next_date(current_date, repeat_rule):
@@ -32,31 +28,17 @@ def get_next_date(current_date, repeat_rule):
     return None
 
 
-def generate_repeating_tasks(task):
-    """
-    Generate future task instances for a repeating task.
-
-    Only the parent task should generate repeat instances.
-    Existing generated instances should not generate their own children.
-    """
-
+def create_next_repeating_task(task):
     if not task.repeat_rule:
-        return
-
-    if task.repeat_parent_id:
-        return
+        return None
 
     if not task.planned_date:
-        return
+        return None
 
-    today = timezone.localdate()
-    generation_end = today + relativedelta(months=REPEAT_MONTHS_AHEAD)
-
-    start_date = task.repeat_generated_until or task.planned_date
-    next_planned_date = get_next_date(start_date, task.repeat_rule)
+    next_planned_date = get_next_date(task.planned_date, task.repeat_rule)
 
     if not next_planned_date:
-        return
+        return None
 
     due_offset = None
     if task.due_date and task.planned_date:
@@ -66,41 +48,42 @@ def generate_repeating_tasks(task):
     if due_offset is not None:
         next_due_date = next_planned_date + due_offset
 
-    created_tasks = []
+    existing = Task.objects.filter(
+        user=task.user,
+        repeat_series_id=task.repeat_series_id,
+        planned_date=next_planned_date,
+        completed=False,
+    ).exists()
 
-    while next_planned_date <= generation_end:
-        next_due_date = None
-        if due_offset is not None:
-            next_due_date = next_planned_date + due_offset
-        elif task.due_date and not task.planned_date:
-            next_due_date = task.due_date
+    if existing:
+        return None
 
-        exists = Task.objects.filter(
-            user=task.user,
-            repeat_series_id=task.repeat_series_id,
-            planned_date=next_planned_date,
-            repeat_parent=task,
-        ).exists()
+    new_task = Task.objects.create(
+        user=task.user,
+        title=task.title,
+        folder=task.folder,
+        planned_date=next_planned_date,
+        due_date=next_due_date,
+        estimated_minutes=task.estimated_minutes,
+        repeat_rule=task.repeat_rule,
+        repeat_series_id=task.repeat_series_id,
+        repeat_parent=task,
+    )
 
-        if not exists:
-            new_task = Task.objects.create(
-                user=task.user,
-                title=task.title,
-                folder=task.folder,
-                planned_date=next_planned_date,
-                due_date=next_due_date,
-                estimated_minutes=task.estimated_minutes,
-                repeat_rule="",
-                repeat_series_id=task.repeat_series_id,
-                repeat_parent=task,
-            )
+    new_task.spaces.set(task.spaces.all())
 
-            new_task.spaces.set(task.spaces.all())
-            created_tasks.append(new_task)
+    incomplete_subtasks = task.subtasks.filter(completed=False)
 
-        task.repeat_generated_until = next_planned_date
-        task.save(update_fields=["repeat_generated_until", "updated_at"])
+    for subtask in incomplete_subtasks:
+        Subtask.objects.create(
+            task=new_task,
+            title=subtask.title,
+            completed=False,
+            due_date=None,
+        )
 
-        next_planned_date = get_next_date(next_planned_date, task.repeat_rule)
+    return new_task
 
-    return created_tasks
+
+def generate_repeating_tasks(task):
+    return create_next_repeating_task(task)

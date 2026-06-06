@@ -9,6 +9,7 @@ from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
 from core.models import TaskNote
+from core.repeating import create_next_repeating_task
 from .serializers import TaskNoteSerializer
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog
 from .serializers import FolderSerializer, SpaceCategorySerializer, SpaceSerializer, TaskSerializer, SubtaskSerializer, AttachmentSerializer, TimeLogSerializer
@@ -222,6 +223,8 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         task = self.get_object()
         completed = request.data.get("completed", None)
 
+        was_completed = task.completed
+
         if completed is None:
             task.completed = not task.completed
         else:
@@ -230,6 +233,10 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
             task.completed = bool(completed)
 
         task.save()
+
+        if task.completed and not was_completed and task.repeat_rule:
+            create_next_repeating_task(task)
+
         return Response(self.get_serializer(task).data)
 
     @action(detail=False, methods=["get"], url_path="planned-range")
@@ -282,6 +289,10 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         active = base.filter(completed=False)
         completed = base.filter(completed=True)
 
+        my_day = active.filter(
+            planned_date=today
+        )
+
         overdue = active.filter(
             due_date__isnull=False,
             due_date__lt=today
@@ -312,6 +323,7 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
         return Response({
             "all": self._logical_task_count(active),
+            "my_day": my_day.count(),
             "inbox": folder_counts.get(str(inbox.id), 0) if inbox else 0,
             "completed": self._logical_task_count(completed),
             "priority": priority.count(),

@@ -133,8 +133,6 @@ class TaskSerializer(serializers.ModelSerializer):
         if spaces:
             task.spaces.set(spaces)
 
-        generate_repeating_tasks(task)
-
         return task
 
 
@@ -148,8 +146,6 @@ class TaskSerializer(serializers.ModelSerializer):
 
         if spaces is not None:
             instance.spaces.set(spaces)
-
-        generate_repeating_tasks(instance)
 
         return instance
 

@@ -242,6 +242,7 @@ async function showCalendar(){
 
   calStart = startOfDay(new Date());
   await renderCalendarRange();
+  jumpToWorkspaceMain();
 }
 
 function showListView(){
@@ -480,6 +481,11 @@ const folderCounts = taskCounts.folders || {};
     allTasksBadge.textContent = String(taskCounts.all || 0);
   }
 
+  const myDayBadge = document.getElementById('my-day-count-badge');
+  if(myDayBadge){
+    myDayBadge.textContent = String(taskCounts.my_day || 0);
+  }
+
   if(els.inboxBadge){
     els.inboxBadge.textContent = String(taskCounts.inbox || 0);
   }
@@ -581,8 +587,9 @@ function populateTaskFilterControls(){
       const isSpace = activeFilter?.type === 'space';
       const isOverdue = activeFilter?.type === 'overdue';
       const isPriority = activeFilter?.type === 'priority';
+      const isAll = activeFilter?.type === 'all';
 
-      if(!isFolder && !isSpace && !isOverdue && !isPriority){
+      if(!isFolder && !isSpace && !isOverdue && !isPriority && !isAll){
         els.taskFilterBar.classList.add('d-none');
         return;
       }
@@ -592,16 +599,16 @@ function populateTaskFilterControls(){
       els.taskFilterBar.classList.remove('d-none');
 
       if(els.filterSpaceWrap){
-        els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isOverdue || isPriority));
+        els.filterSpaceWrap.classList.toggle('d-none', !(isFolder || isOverdue || isPriority || isAll));
       }
 
       if(els.filterFolderWrap){
-        els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isOverdue || isPriority));
+        els.filterFolderWrap.classList.toggle('d-none', !(isSpace || isOverdue || isPriority || isAll));
       }
     }
 
   async function applyTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['all', 'folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: els.filterSpace?.value || '',
@@ -613,7 +620,7 @@ function populateTaskFilterControls(){
   }
 
   async function clearTaskFilters(){
-    if(!activeFilter || !['folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
+    if(!activeFilter || !['all', 'folder', 'space', 'overdue', 'priority'].includes(activeFilter.type)) return;
 
     activeFilter.extra = {
       space: '',
@@ -636,6 +643,7 @@ function populateTaskFilterControls(){
       extra: { space: '', folder: '', ordering: 'planned_date' }
     };
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
   window.filterByFolder = filterByFolder;
 
@@ -652,20 +660,28 @@ function populateTaskFilterControls(){
     };
 
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
 
   window.filterBySpace = filterBySpace;
 
   async function showAllTasks(){
     showListView();
-    activeFilter = { type:'all', id:null, name:'All Tasks' };
+    activeFilter = {
+      type:'all',
+      id:null,
+      name:'All Tasks',
+      extra: { space: '', folder: '', ordering: 'planned_date' }
+    };
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
 
   async function showInbox(){
     showListView();
     activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
   async function showOverdue(){
     showListView();
@@ -676,6 +692,7 @@ function populateTaskFilterControls(){
       extra: { space: '', folder: '', ordering: 'due_date' }
     };
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
 
     async function showPriority(){
@@ -687,12 +704,14 @@ function populateTaskFilterControls(){
         extra: { space: '', folder: '', ordering: 'planned_date' }
       };
       await renderListByFilter();
+      jumpToWorkspaceMain();
     }
 
   async function showCompleted(){
     showListView();
     activeFilter = { type:'completed', id:null, name:'Completed Tasks' };
     await renderListByFilter();
+    jumpToWorkspaceMain();
   }
 
 
@@ -911,13 +930,25 @@ async function renderListByFilter(){
   window.currentTasks = tasks;
   updateTaskFilterBar();
 
-  if(['priority', 'overdue', 'folder', 'space'].includes(activeFilter.type)){
+  if(['all', 'priority', 'overdue', 'folder', 'space'].includes(activeFilter.type)){
     tasks = applyClientTaskFilters(tasks);
   }
 
   renderTasks(tasks);
   await renderSidebar();
 }
+
+function jumpToWorkspaceMain(){
+    if(window.innerWidth >= 992) return;
+
+    const main = document.getElementById('workspaceMain');
+    if(!main) return;
+
+    main.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }
 
 /* Task rendering */
 function renderTasks(tasks){
