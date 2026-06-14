@@ -3,6 +3,8 @@ from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
 from datetime import date
+from django.utils import timezone
+from datetime import timedelta
 
 from core.models import Folder, Space, SpaceCategory, Task
 
@@ -183,3 +185,40 @@ class TaskCountsAPITests(APITestCase):
         self.assertEqual(data["completed"], 1)
         self.assertEqual(data["inbox"], 3)
         self.assertEqual(data["spaces"][str(self.space.id)], 1)
+
+
+    def test_counts_endpoint_returns_date_sensitive_counts(self):
+        today = timezone.localdate()
+        yesterday = today - timedelta(days=1)
+
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="My Day task",
+            planned_date=today
+        )
+
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Priority task",
+            planned_date=yesterday
+        )
+
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Overdue task",
+            due_date=yesterday
+        )
+
+        url = reverse("api:task-counts")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+
+        self.assertEqual(data["my_day"], 1)
+        self.assertEqual(data["priority"], 2)
+        self.assertEqual(data["overdue"], 1)
