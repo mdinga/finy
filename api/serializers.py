@@ -2,6 +2,7 @@ from rest_framework import serializers
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog, TaskNote
 from core.repeating import generate_repeating_tasks
 from django.utils import timezone
+from django.db.models import Q
 
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -21,11 +22,21 @@ class SpaceCategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 class SpaceSerializer(serializers.ModelSerializer):
-    category = serializers.PrimaryKeyRelatedField(queryset=SpaceCategory.objects.all())
+    category = serializers.PrimaryKeyRelatedField(queryset=SpaceCategory.objects.none())
 
     class Meta:
         model = Space
         fields = ['id', 'name', 'category']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+
+        if request and request.user and request.user.is_authenticated:
+            self.fields["category"].queryset = SpaceCategory.objects.filter(
+                Q(user=request.user) | Q(user__isnull=True)
+            )
 
     def _apply_prefix(self, name, category):
         name = (name or "").strip().replace(" ", "_").lower()
@@ -92,8 +103,16 @@ class AttachmentSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    folder = serializers.PrimaryKeyRelatedField(queryset=Folder.objects.all(), required=False, allow_null=True)
-    spaces = serializers.PrimaryKeyRelatedField(queryset=Space.objects.all(), many=True, required=False)
+    folder = serializers.PrimaryKeyRelatedField(
+        queryset=Folder.objects.none(),
+        required=False,
+        allow_null=True
+    )
+    spaces = serializers.PrimaryKeyRelatedField(
+        queryset=Space.objects.none(),
+        many=True,
+        required=False
+    )
     subtasks = SubtaskSerializer(many=True, read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     is_priority = serializers.BooleanField(read_only=True)
@@ -111,6 +130,20 @@ class TaskSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'subtasks', 'attachments',
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+
+        if request and request.user and request.user.is_authenticated:
+            self.fields["folder"].queryset = Folder.objects.filter(
+                user=request.user
+            )
+
+            self.fields["spaces"].queryset = Space.objects.filter(
+                user=request.user
+            )
 
     def get_spaces_display(self, obj):
         return ", ".join(obj.spaces.values_list('name', flat=True))
