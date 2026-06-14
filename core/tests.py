@@ -103,3 +103,43 @@ class RepeatingTaskTests(TestCase):
             new_task.planned_date,
             date(2026, 6, 15)
         )
+
+    def test_weekly_repeat_creates_next_task(self):
+        task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Weekly Task",
+            planned_date=date(2026, 6, 14),
+            repeat_rule="WEEKLY"
+        )
+
+        create_next_repeating_task(task)
+
+        new_task = (
+            Task.objects
+            .filter(user=self.user, title="Weekly Task")
+            .exclude(pk=task.pk)
+            .get()
+        )
+
+        self.assertEqual(new_task.planned_date, date(2026, 6, 21))
+
+    def test_monthly_repeat_creates_next_task(self):
+        task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Monthly Task",
+            planned_date=date(2026, 6, 14),
+            repeat_rule="MONTHLY"
+        )
+
+        create_next_repeating_task(task)
+
+        new_task = (
+            Task.objects
+            .filter(user=self.user, title="Monthly Task")
+            .exclude(pk=task.pk)
+            .get()
+        )
+
+        self.assertEqual(new_task.planned_date, date(2026, 7, 14))
