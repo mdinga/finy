@@ -44,3 +44,22 @@ class RegistrationFlowTests(TestCase):
                 category=other_category
             ).exists()
         )
+
+
+    def test_user_can_login_with_email_and_password(self):
+        User.objects.create_user(
+            username="login@example.com",
+            email="login@example.com",
+            password="StrongPass123!",
+            first_name="Login"
+        )
+
+        url = reverse("ui:login")
+
+        response = self.client.post(url, {
+            "email": "login@example.com",
+            "password": "StrongPass123!",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("ui:user_home"))
