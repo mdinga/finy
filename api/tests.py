@@ -116,3 +116,70 @@ class RepeatingTaskAPITests(APITestCase):
         next_task = Task.objects.exclude(pk=task.pk).get()
 
         self.assertEqual(next_task.planned_date, date(2026, 6, 15))
+
+class TaskCountsAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="counts@example.com",
+            email="counts@example.com",
+            password="pass12345"
+        )
+
+        self.folder = Folder.objects.get(
+            user=self.user,
+            is_inbox=True
+        )
+
+        self.category = SpaceCategory.objects.create(
+            user=None,
+            name="Location"
+        )
+
+        self.space = Space.objects.create(
+            user=self.user,
+            name="at_office",
+            category=self.category
+        )
+
+        self.client.force_authenticate(user=self.user)
+
+    def test_counts_endpoint_returns_expected_counts(self):
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Inbox task"
+        )
+
+        planned_task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Planned task",
+            planned_date=date(2026, 6, 14)
+        )
+        planned_task.spaces.add(self.space)
+
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Overdue task",
+            due_date=date(2026, 6, 13)
+        )
+
+        Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Completed task",
+            completed=True
+        )
+
+        url = reverse("api:task-counts")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        data = response.json()
+
+        self.assertEqual(data["all"], 3)
+        self.assertEqual(data["completed"], 1)
+        self.assertEqual(data["inbox"], 3)
+        self.assertEqual(data["spaces"][str(self.space.id)], 1)
