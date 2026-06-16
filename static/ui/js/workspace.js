@@ -1305,9 +1305,15 @@ async function saveDetails(taskId){
   const folderVal = document.getElementById('folder-' + taskId)?.value || null;
 
   const spaceChecks = Array.from(document.querySelectorAll('.space-check-' + taskId));
+  const validSpaceIds = new Set(
+    (spacesCache || []).map(s => String(s.id))
+  );
+
   const spaces = spaceChecks
     .filter(ch => ch.checked)
-    .map(ch => parseInt(ch.value, 10))
+    .map(ch => ch.value)
+    .filter(value => validSpaceIds.has(String(value)))
+    .map(value => parseInt(value, 10))
     .filter(n => Number.isFinite(n));
 
     const payload = {
@@ -1330,6 +1336,7 @@ async function saveDetails(taskId){
   }
 
   try{
+    console.log("SAVE DETAILS PAYLOAD", payload);
     await apiSend(`${API.tasks}${taskId}/`, 'PATCH', payload);
 
     const summary = document.getElementById('spaces-summary-' + taskId);

@@ -18,6 +18,11 @@
         ☰ Menu
     </button>
 
+    <a
+       href="{% url 'journeys:home' %}"
+       class="btn btn-sm topbar-btn topbar-btn-upcoming">
+       Journey
+     </a>
     <!-- RIGHT: Actions -->
     <div class="d-none d-lg-flex gap-2 align-items-center">
       <button
@@ -66,6 +71,7 @@
         </div>
       </div>
     </div>
+
         <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2 d-none d-lg-block">
           {% csrf_token %}
           <button type="submit" class="btn btn-sm topbar-btn topbar-btn-logout">

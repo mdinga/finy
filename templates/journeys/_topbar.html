@@ -1,0 +1,37 @@
+{% load static %}
+<header class="border-bottom bg-white">
+  <div class="container-fluid py-3 d-flex justify-content-between align-items-center">
+
+    <!-- LEFT: Logo -->
+    <a href="{% url 'journeys:home' %}" class="d-flex align-items-center">
+      <img src="{% static 'ui/images/Finy_logo_1.png' %}" alt="Finy Logo" height="72">
+    </a>
+
+        <div class="ms-auto d-flex gap-3">
+
+          <a href="{% url 'journeys:home' %}"
+           class="btn btn-sm topbar-btn topbar-btn-upcoming">
+            Journey
+          </a>
+
+          <a href="{% url 'ui:user_home' %}"
+           class="btn btn-sm topbar-btn topbar-btn-quick">
+            Workspace
+          </a>
+
+          <a href="{% url 'journeys:profile' %}"
+             class="btn btn-sm topbar-btn topbar-btn-upcoming">
+              Profile
+          </a>
+
+            <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2 d-none d-lg-block">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm topbar-btn topbar-btn-logout">
+                Logout
+              </button>
+            </form>
+
+        </div>
+
+    </div>
+</header>

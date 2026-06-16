@@ -77,7 +77,7 @@ class UserHomeView(LoginRequiredMixin, TemplateView):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect("ui:user_home")
+        return redirect("journeys:home")
 
     if request.method == "POST":
         form = EmailLoginForm(request.POST)
@@ -89,7 +89,7 @@ def login_view(request):
 
             if user is not None:
                 login(request, user)
-                return redirect("ui:user_home")
+                return redirect("journeys:home")
 
             messages.error(request, "Invalid email or password.")
     else:
@@ -101,7 +101,7 @@ def login_view(request):
 
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect("ui:user_home")
+        return redirect("journeys:home")
 
     if request.method == "POST":
         form = RegistrationForm(request.POST)
@@ -132,7 +132,7 @@ def register_view(request):
             if authenticated_user is not None:
                 login(request, authenticated_user)
                 messages.success(request, "Welcome to Finy.")
-                return redirect("ui:user_home")
+                return redirect("journeys:home")
     else:
         form = RegistrationForm()
 

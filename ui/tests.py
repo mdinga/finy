@@ -62,4 +62,4 @@ class RegistrationFlowTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("ui:user_home"))
+        self.assertEqual(response.url, reverse("journeys:home"))

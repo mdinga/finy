@@ -3,6 +3,17 @@ from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment,
 from core.repeating import generate_repeating_tasks
 from django.utils import timezone
 from django.db.models import Q
+from journeys.services import (
+    update_capture_journey_progress,
+    update_organised_tasks_progress,
+    update_inbox_journey_progress,
+    update_date_planning_journey_progress,
+    update_estimated_time_journey_progress,
+    update_focus_journey_progress,
+    track_review_task_update,
+    update_mastery_journey_progress,
+)
+
 
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -135,15 +146,22 @@ class TaskSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
 
         request = self.context.get("request")
+        user = None
 
-        if request and request.user and request.user.is_authenticated:
-            self.fields["folder"].queryset = Folder.objects.filter(
-                user=request.user
-            )
+        if self.instance and hasattr(self.instance, "user"):
+            user = self.instance.user
+        elif request and request.user and request.user.is_authenticated:
+            user = request.user
 
-            self.fields["spaces"].queryset = Space.objects.filter(
-                user=request.user
-            )
+        if user:
+            self.fields["folder"].queryset = Folder.objects.filter(user=user)
+
+            spaces_queryset = Space.objects.filter(user=user)
+
+            if hasattr(self.fields["spaces"], "child_relation"):
+                self.fields["spaces"].child_relation.queryset = spaces_queryset
+            else:
+                self.fields["spaces"].queryset = spaces_queryset
 
     def get_spaces_display(self, obj):
         return ", ".join(obj.spaces.values_list('name', flat=True))
@@ -166,10 +184,20 @@ class TaskSerializer(serializers.ModelSerializer):
         if spaces:
             task.spaces.set(spaces)
 
+        update_capture_journey_progress(user)
+        update_date_planning_journey_progress(user)
+        update_estimated_time_journey_progress(user)
+        update_focus_journey_progress(user)
+        update_mastery_journey_progress(user)
+
         return task
 
 
     def update(self, instance, validated_data):
+        old_planned_date = instance.planned_date
+        old_due_date = instance.due_date
+        was_completed = instance.completed
+
         spaces = validated_data.pop('spaces', None)
 
         for attr, value in validated_data.items():
@@ -179,6 +207,22 @@ class TaskSerializer(serializers.ModelSerializer):
 
         if spaces is not None:
             instance.spaces.set(spaces)
+
+        track_review_task_update(
+            user=instance.user,
+            task=instance,
+            old_planned_date=old_planned_date,
+            old_due_date=old_due_date,
+            was_completed=was_completed,
+        )
+
+
+        update_organised_tasks_progress(instance.user)
+        update_inbox_journey_progress(instance.user)
+        update_date_planning_journey_progress(instance.user)
+        update_estimated_time_journey_progress(instance.user)
+        update_focus_journey_progress(instance.user)
+        update_mastery_journey_progress(instance.user)
 
         return instance
 

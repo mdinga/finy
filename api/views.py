@@ -13,6 +13,17 @@ from core.repeating import create_next_repeating_task
 from .serializers import TaskNoteSerializer
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog
 from .serializers import FolderSerializer, SpaceCategorySerializer, SpaceSerializer, TaskSerializer, SubtaskSerializer, AttachmentSerializer, TimeLogSerializer
+from journeys.services import (
+    update_folder_journey_progress,
+    update_space_journey_progress,
+    update_next_action_journey_progress,
+    update_note_journey_progress,
+    update_organised_tasks_progress,
+    update_inbox_journey_progress,
+    update_focus_journey_progress,
+    track_review_task_update,
+    update_mastery_journey_progress,
+)
 
 from .filters import TaskFilter
 
@@ -52,6 +63,15 @@ class FolderViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         instance.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+    def perform_create(self, serializer):
+        folder = serializer.save(user=self.request.user)
+        update_folder_journey_progress(self.request.user)
+        return folder
+
+    def perform_update(self, serializer):
+        folder = serializer.save()
+        update_folder_journey_progress(self.request.user)
+        return folder
 
 
 class SpaceCategoryViewSet(viewsets.ReadOnlyModelViewSet):  # read-only for now
@@ -68,6 +88,16 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     serializer_class = SpaceSerializer
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'category__name']
+
+    def perform_create(self, serializer):
+        space = serializer.save(user=self.request.user)
+        update_space_journey_progress(self.request.user)
+        return space
+
+    def perform_update(self, serializer):
+        space = serializer.save()
+        update_space_journey_progress(self.request.user)
+        return space
 
 
 class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
@@ -91,6 +121,7 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
             return Response({"detail": "text required"}, status=400)
 
         note = TaskNote.objects.create(task=task, text=text)
+        update_note_journey_progress(request.user)
         return Response(TaskNoteSerializer(note).data, status=201)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"notes/(?P<note_id>[^/.]+)")
@@ -127,6 +158,7 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
             return Response({"detail": "text required"}, status=400)
 
         st = Subtask.objects.create(task=task, title=title)
+        update_next_action_journey_progress(request.user)
         return Response(SubtaskSerializer(st).data, status=201)
 
     @action(detail=True, methods=["patch", "delete"], url_path=r"actions/(?P<action_id>[^/.]+)")
@@ -218,11 +250,14 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
             return self.get_paginated_response(self.get_serializer(page, many=True).data)
         return Response(self.get_serializer(qs, many=True).data)
 
+
     @action(detail=True, methods=["post"], url_path="complete")
     def complete(self, request, pk=None):
         task = self.get_object()
         completed = request.data.get("completed", None)
 
+        old_planned_date = task.planned_date
+        old_due_date = task.due_date
         was_completed = task.completed
 
         if completed is None:
@@ -234,8 +269,19 @@ class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
         task.save()
 
+        track_review_task_update(
+            user=request.user,
+            task=task,
+            old_planned_date=old_planned_date,
+            old_due_date=old_due_date,
+            was_completed=was_completed,
+        )
+
         if task.completed and not was_completed and task.repeat_rule:
             create_next_repeating_task(task)
+
+        update_focus_journey_progress(request.user)
+        update_mastery_journey_progress(request.user)
 
         return Response(self.get_serializer(task).data)
 

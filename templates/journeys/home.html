@@ -1,0 +1,367 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+
+<head>
+  <!-- PAGE SETUP -->
+  <meta charset="utf-8">
+  <title>Journey | Finy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- STYLES -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'ui/css/workspace.css' %}">
+
+  <!-- BOOTSTRAP JS -->
+  <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+
+<body class="workspace-page text-dark">
+
+  <!-- TOP NAVIGATION -->
+  {% include "journeys/_topbar.html" %}
+
+  <main class="container-fluid my-4">
+    <section class="row justify-content-center">
+      <div class="col-12 col-lg-8">
+
+        <!-- IDENTITY CARD -->
+          <div class="card task-card mb-3">
+            <div class="card-body">
+              <div class="hint mb-2">Your identity is growing</div>
+
+              {% if latest_achievement %}
+                <h1 class="h4 mb-2">
+                  You are now {{ latest_achievement.achievement.name }}
+                </h1>
+
+                <p class="mb-0 text-muted">
+                  {{ latest_achievement.achievement.message }}
+                </p>
+              {% else %}
+                <h1 class="h4 mb-2">
+                  You are starting as a Mindful Starter
+                </h1>
+
+                <p class="mb-0 text-muted">
+                  Every productive system starts with one decision: stop carrying everything in your head.
+                  Complete the challenges below to build the habits of a highly productive person.
+                </p>
+              {% endif %}
+            </div>
+          </div>
+
+                  <!-- FULL JOURNEY ROADMAP -->
+          {% if journey_map %}
+            <div class="card task-card mb-3">
+              <div class="card-body">
+                <div class="hint mb-2">Your path</div>
+
+                <h1 class="h4 mb-3">
+                  The Journey to Becoming Highly Productive
+                </h1>
+
+                <div class="journey-roadmap">
+                  {% for item in journey_map %}
+                    <div class="journey-roadmap-item
+                                {% if item.is_active %}journey-active{% endif %}
+                                {% if item.is_complete %}journey-complete{% endif %}
+                                {% if item.is_locked %}journey-locked{% endif %}">
+
+                      <div class="journey-roadmap-icon">
+                        {% if item.is_complete %}
+                          ✓
+                        {% elif item.is_active %}
+                          ●
+                        {% else %}
+                          🔒
+                        {% endif %}
+                      </div>
+
+                      <div class="journey-roadmap-content">
+                        <div class="d-flex justify-content-between gap-2">
+                          <strong>{{ item.journey.name }}</strong>
+
+                          {% if item.is_complete %}
+                            <span class="badge priority-badge">Complete</span>
+                          {% elif item.is_active %}
+                            <span class="badge due-today-badge">Active</span>
+                          {% else %}
+                            <span class="badge count-badge">Locked</span>
+                          {% endif %}
+                        </div>
+
+                        <div class="small text-muted mt-1">
+                          {{ item.journey.description }}
+                        </div>
+
+                        <div class="small text-muted mt-1">
+                          {{ item.completed }} of {{ item.total }} required challenges complete
+                        </div>
+
+                        <div class="progress mt-2" style="height: 8px;">
+                          <div class="progress-bar" style="width: {{ item.percentage }}%"></div>
+                        </div>
+
+                        <button class="btn btn-sm topbar-btn topbar-btn-upcoming mt-3"
+                                type="button"
+                                data-bs-toggle="collapse"
+                                data-bs-target="#journeyChallenges{{ item.journey.id }}"
+                                aria-expanded="false">
+                          View Challenges
+                        </button>
+
+                        <div class="collapse mt-3" id="journeyChallenges{{ item.journey.id }}">
+                          {% for challenge in item.challenges %}
+                            <div class="p-3 rounded border bg-white mb-2">
+                              <div class="d-flex justify-content-between align-items-start gap-2">
+
+                                <div>
+                                  <strong>
+                                    {% if challenge.completed %}
+                                      ✓
+                                    {% else %}
+                                      ○
+                                    {% endif %}
+                                    {{ challenge.mission.name }}
+                                  </strong>
+
+                                  {% if not challenge.is_required %}
+                                    <div class="small text-muted">Bonus challenge</div>
+                                  {% endif %}
+
+                                  <div class="small text-muted mt-1">
+                                    {{ challenge.progress }}/{{ challenge.mission.target_count }}
+                                  </div>
+                                </div>
+
+                                {% if challenge.completed %}
+                                  <span class="badge priority-badge">Complete</span>
+                                {% elif not item.is_locked %}
+
+                                <button class="btn btn-sm workspace-btn-lime challenge-detail-btn"
+                                    type="button"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#challengeDetailModal"
+                                    data-challenge-name="{{ challenge.mission.name|escape }}"
+                                    data-challenge-description="{{ challenge.mission.description|escape }}"
+                                    data-guidance-title="{{ challenge.mission.guidance_title|escape }}"
+                                    data-guidance-text="{{ challenge.mission.guidance_text|escape }}"
+                                    data-guidance-tip="{{ challenge.mission.guidance_tip|escape }}"
+                                    data-progress="{{ challenge.progress }}"
+                                    data-target="{{ challenge.target_count }}"
+                                    data-completed="{% if challenge.completed %}true{% else %}false{% endif %}"
+                                    data-achievement-name="{{ challenge.achievement_name|escape }}"
+                                    data-achievement-message="{{ challenge.achievement_message|escape }}">
+                                Complete Challenge
+                                </button>
+
+                                {% else %}
+                                  <span class="badge count-badge">Locked</span>
+                                {% endif %}
+
+                              </div>
+                            </div>
+                          {% endfor %}
+                        </div>
+
+                      </div>
+
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <!-- CHALLENGE COMPLETE OVERLAY -->
+  {% if unseen_mission %}
+    <div id="missionOverlay" class="achievement-overlay">
+      <div class="achievement-card">
+        <div class="hint mb-1">Challenge Complete</div>
+
+        <h2 class="h4 mb-2">
+          {{ unseen_mission.mission.name }}
+        </h2>
+
+        <p class="mb-4">
+          You completed this challenge in the
+          <strong>{{ unseen_mission.mission.journey.name }}</strong>
+          journey.
+        </p>
+
+        <button id="missionContinueBtn" class="btn workspace-btn-lime">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const overlay = document.getElementById("missionOverlay");
+        const button = document.getElementById("missionContinueBtn");
+
+        if (!overlay || !button) {
+          return;
+        }
+
+        button.addEventListener("click", function () {
+          fetch("{% url 'journeys:mission_seen' unseen_mission.id %}", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "X-CSRFToken": "{{ csrf_token }}",
+            },
+          }).catch(function () {});
+
+          overlay.remove();
+        });
+      });
+    </script>
+  {% endif %}
+
+  <!-- ACHIEVEMENT UNLOCKED OVERLAY -->
+  {% if unseen_achievement and not unseen_mission %}
+    <div id="achievementOverlay" class="achievement-overlay">
+      <div class="achievement-card">
+        <div class="hint mb-1">Achievement Unlocked</div>
+
+        <h2 class="h4 mb-2">
+          {{ unseen_achievement.achievement.name }}
+        </h2>
+
+        <p class="mb-4">
+          {{ unseen_achievement.achievement.message }}
+        </p>
+
+        <button id="achievementContinueBtn" class="btn workspace-btn-lime">
+          Continue
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const overlay = document.getElementById("achievementOverlay");
+        const button = document.getElementById("achievementContinueBtn");
+
+        if (!overlay || !button) {
+          return;
+        }
+
+        button.addEventListener("click", function () {
+          fetch("{% url 'journeys:achievement_seen' unseen_achievement.id %}", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "X-CSRFToken": "{{ csrf_token }}",
+            },
+          }).catch(function () {});
+
+          overlay.remove();
+        });
+      });
+    </script>
+  {% endif %}
+
+  <!-- CHALLENGE DETAIL MODAL -->
+    <div class="modal fade" id="challengeDetailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <div>
+              <div class="hint mb-1">Challenge Details</div>
+              <h5 class="modal-title" id="challengeDetailTitle"></h5>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+            <p id="challengeDetailDescription" class="text-muted"></p>
+
+            <div class="mb-3">
+              <div class="small text-muted">Progress</div>
+              <strong id="challengeProgress"></strong>
+            </div>
+
+            <div class="mb-3">
+              <div class="small text-muted">Status</div>
+              <strong id="challengeStatus"></strong>
+            </div>
+            <div class="p-3 rounded border bg-white">
+              <strong id="challengeGuidanceTitle"></strong>
+              <p id="challengeGuidanceText" class="mt-2 mb-2"></p>
+              <div id="challengeGuidanceTip" class="small text-muted"></div>
+            </div>
+            <div class="p-3 rounded border bg-white mt-3">
+              <div class="small text-muted mb-1">
+                Reward
+              </div>
+
+              <strong id="challengeRewardName"></strong>
+
+              <p id="challengeRewardMessage"
+                 class="mb-0 mt-2 text-muted">
+              </p>
+            </div>
+
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-sm topbar-btn topbar-btn-upcoming" disabled>
+              Watch Video
+            </button>
+
+            <a href="{% url 'ui:user_home' %}" class="btn btn-sm workspace-btn-lime">
+              Go to Workspace
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const buttons = document.querySelectorAll(".challenge-detail-btn");
+
+        const title = document.getElementById("challengeDetailTitle");
+        const description = document.getElementById("challengeDetailDescription");
+        const guidanceTitle = document.getElementById("challengeGuidanceTitle");
+        const guidanceText = document.getElementById("challengeGuidanceText");
+        const guidanceTip = document.getElementById("challengeGuidanceTip");
+        const progress = document.getElementById("challengeProgress");
+        const status = document.getElementById("challengeStatus");
+        const rewardName = document.getElementById("challengeRewardName");
+        const rewardMessage = document.getElementById("challengeRewardMessage");
+
+        buttons.forEach(function (button) {
+          button.addEventListener("click", function () {
+            title.textContent = button.dataset.challengeName || "";
+            description.textContent = button.dataset.challengeDescription || "";
+            guidanceTitle.textContent = button.dataset.guidanceTitle || "";
+            guidanceText.textContent = button.dataset.guidanceText || "";
+            guidanceTip.textContent = button.dataset.guidanceTip || "";
+            progress.textContent =
+              `${button.dataset.progress || 0} / ${button.dataset.target || 0}`;
+
+            status.textContent =
+              button.dataset.completed === "true"
+                ? "Complete"
+                : "In Progress";
+
+            rewardName.textContent =
+              button.dataset.achievementName || "";
+
+            rewardMessage.textContent =
+              button.dataset.achievementMessage || "";
+          });
+        });
+      });
+      </script>
+</body>
+</html>
