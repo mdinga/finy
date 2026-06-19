@@ -19,11 +19,6 @@
             Workspace
           </a>
 
-          <a href="{% url 'journeys:profile' %}"
-             class="btn btn-sm topbar-btn topbar-btn-upcoming">
-              Profile
-          </a>
-
             <form method="post" action="{% url 'ui:logout' %}" class="m-0 ms-2 d-none d-lg-block">
               {% csrf_token %}
               <button type="submit" class="btn btn-sm topbar-btn topbar-btn-logout">

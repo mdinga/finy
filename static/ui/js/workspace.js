@@ -136,12 +136,108 @@ async function apiSend(url, method, data, isForm=false){
   return r.json().catch(()=> ({}));
 }
 
+function updateWorkspaceBadge(achievement){
+  if(!achievement) return;
+
+  const strip = document.getElementById('workspaceBadgeStrip');
+  const badge = document.getElementById('workspaceCurrentBadge');
+  const icon = document.getElementById('workspaceBadgeIcon');
+  const fallback = document.getElementById('workspaceBadgeFallback');
+  const name = document.getElementById('workspaceBadgeName');
+
+  if(!strip || !badge || !icon || !fallback || !name) return;
+
+  strip.classList.remove('d-none');
+  badge.classList.remove('badge-image-missing');
+  badge.title = achievement.name || '';
+  name.textContent = achievement.name || '';
+  fallback.textContent = (achievement.name || '').charAt(0);
+
+  if(achievement.badge_url){
+    badge.classList.add('has-badge-image');
+    icon.src = achievement.badge_url;
+    icon.alt = achievement.name || '';
+    icon.classList.remove('d-none');
+  } else {
+    badge.classList.remove('has-badge-image');
+    icon.removeAttribute('src');
+    icon.alt = '';
+    icon.classList.add('d-none');
+  }
+}
+
+async function markWorkspaceAchievementSeen(achievementId){
+  if(!achievementId || !API.achievementSeen) return;
+  await apiSend(`${API.achievementSeen}${achievementId}/seen/`, 'POST', {});
+}
+
+function showWorkspaceAchievementModal(achievement){
+  const modalEl = document.getElementById('workspaceAchievementModal');
+  const badge = document.getElementById('workspaceAchievementBadge');
+  const title = document.getElementById('workspaceAchievementName');
+  const message = document.getElementById('workspaceAchievementMessage');
+  const button = document.getElementById('workspaceAchievementContinue');
+
+  if(!modalEl || !title || !message || !button) return;
+
+  title.textContent = achievement.name || '';
+  message.textContent = achievement.message || '';
+
+  if(badge){
+    if(achievement.badge_url){
+      badge.src = achievement.badge_url;
+      badge.alt = achievement.name || '';
+      badge.classList.remove('d-none');
+    } else {
+      badge.removeAttribute('src');
+      badge.alt = '';
+      badge.classList.add('d-none');
+    }
+  }
+
+  const modal = window.bootstrap
+    ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+    : null;
+
+  const onContinue = async () => {
+    button.removeEventListener('click', onContinue);
+    await markWorkspaceAchievementSeen(achievement.id);
+    if(modal) modal.hide();
+  };
+
+  button.addEventListener('click', onContinue);
+
+  if(modal){
+    modal.show();
+  }
+}
+
+async function refreshWorkspaceAchievements(){
+  if(!API.achievementStatus) return;
+
+  let status = null;
+
+  try{
+    status = await apiGet(API.achievementStatus);
+  }catch(e){
+    return;
+  }
+
+  if(status.highest){
+    updateWorkspaceBadge(status.highest);
+  }
+
+  if(status.unseen){
+    showWorkspaceAchievementModal(status.unseen);
+  }
+}
+
 /* State */
 let inboxId = null;
 let foldersCache = null;
 let spacesCache = null;
 let categoriesCache = null;
-let activeFilter = { type:'inbox', id:null, name:'Inbox' };
+let activeFilter = { type:'inbox', id:null, name:'INBOX' };
 
 const els = {
   list: document.getElementById('task-list'),
@@ -186,6 +282,7 @@ async function init(){
   await loadCategories();
   await resolveInbox();
   await renderSidebar();
+  await refreshWorkspaceAchievements();
   await showCalendar();
 }
 
@@ -463,7 +560,7 @@ const folderCounts = taskCounts.folders || {};
       `<li class="list-group-item d-flex align-items-center" data-id="${s.id}">
         <button class="btn btn-link btn-sm text-decoration-none text-reset list-title-btn" onclick="filterBySpace('${s.id}')">${esc(s.name)}</button>
         <span id="space-count-${s.id}" class="badge rounded-pill count-badge me-2">${spaceCounts[s.id] ?? 0}</span>
-        <div class="dropdown kebab">
+        ${String(s.name || '').toLowerCase() === 'waiting_for' ? '' : `<div class="dropdown kebab">
           <button class="btn btn-plain btn-sm btn-kebab" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Space actions">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
           </button>
@@ -471,7 +568,7 @@ const folderCounts = taskCounts.folders || {};
             <li><button class="dropdown-item" onclick="startEditSpace('${s.id}')">Edit</button></li>
             <li><button class="dropdown-item text-danger" onclick="deleteSpace('${s.id}')">Delete</button></li>
           </ul>
-        </div>
+        </div>`}
       </li>`
     )).join('');
   }
@@ -679,7 +776,7 @@ function populateTaskFilterControls(){
 
   async function showInbox(){
     showListView();
-    activeFilter = { type:'inbox', id: inboxId, name:'Inbox' };
+    activeFilter = { type:'inbox', id: inboxId, name:'INBOX' };
     await renderListByFilter();
     jumpToWorkspaceMain();
   }
@@ -725,6 +822,40 @@ async function onCreateSubmit(e){
   els.newTaskTitle.value = '';
   await renderListByFilter();
   await renderSidebar();
+  await refreshWorkspaceAchievements();
+}
+
+function refreshOpenFolderSelects(selectedFolderId){
+  document.querySelectorAll('select[id^="folder-"]').forEach(select => {
+    const currentValue = selectedFolderId ? String(selectedFolderId) : select.value;
+    const folders = (foldersCache || []).slice().sort((a,b)=>a.name.localeCompare(b.name));
+
+    select.innerHTML = folders.map(f => {
+      const selected = String(f.id) === String(currentValue) ? 'selected' : '';
+      return `<option value="${f.id}" ${selected}>${esc(f.name)}</option>`;
+    }).join('');
+  });
+}
+
+function refreshOpenSpacePanels(selectedSpaceId){
+  document.querySelectorAll('[id^="spaces-panel-"]').forEach(panel => {
+    const taskId = panel.id.replace('spaces-panel-', '');
+    const checks = Array.from(document.querySelectorAll('.space-check-' + taskId));
+    const selected = checks
+      .filter(ch => ch.checked)
+      .map(ch => String(ch.value));
+
+    if(selectedSpaceId){
+      selected.push(String(selectedSpaceId));
+    }
+
+    panel.innerHTML = buildSpacesChecklistHtml(taskId, [...new Set(selected)]);
+
+    const summary = document.getElementById('spaces-summary-' + taskId);
+    if(summary){
+      summary.innerHTML = buildSpacesSummaryHtml([...new Set(selected)]);
+    }
+  });
 }
 
 /* Create folder or space */
@@ -736,7 +867,13 @@ async function createFolder(nameId, descId){
   const description = (descEl?.value || '').trim();
   if(!name) return;
 
-  await apiSend(API.folders, 'POST', { name, description });
+  const folder = await apiSend(API.folders, 'POST', { name, description });
+
+  if(folder && folder.id){
+    foldersCache = (foldersCache || []).filter(f => String(f.id) !== String(folder.id));
+    foldersCache.push(folder);
+    refreshOpenFolderSelects(folder.id);
+  }
 
   if(nameEl) nameEl.value = '';
   if(descEl) descEl.value = '';
@@ -752,10 +889,7 @@ async function createFolder(nameId, descId){
   }
 
   await renderSidebar();
-
-  if(activeFilter?.type === 'folder' || activeFilter?.type === 'space' || activeFilter?.type === 'overdue'){
-    await renderListByFilter();
-  }
+  await refreshWorkspaceAchievements();
 }
 window.createFolder = createFolder;
 
@@ -775,12 +909,20 @@ async function createSpace(nameId, catSelectId){
     return;
   }
 
-  await apiSend(API.spaces, 'POST', { name, category });
+  const space = await apiSend(API.spaces, 'POST', { name, category });
+
+  if(space && space.id){
+    spacesCache = (spacesCache || []).filter(s => String(s.id) !== String(space.id));
+    spacesCache.push(space);
+    refreshOpenSpacePanels(space.id);
+  }
+
   if(nameEl) nameEl.value = '';
   document.getElementById('addSpaceRow')?.classList.add('d-none');
   document.getElementById('quickCreateError')?.classList.add('d-none');
   document.getElementById('spaceCreateError')?.classList.add('d-none');
   await renderSidebar();
+  await refreshWorkspaceAchievements();
 }
 window.createSpace = createSpace;
 
@@ -1057,6 +1199,16 @@ function buildTaskCard(t){
   return wrap;
 }
 
+function buildTaskActionButtons(taskId){
+  return `
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button class="btn btn-plain btn-sm" onclick="saveDetails(${taskId})">Save Task</button>
+      <button class="btn btn-plain btn-sm text-danger" onclick="deleteTask(${taskId})">Delete Task</button>
+    </div>
+  `;
+}
+
+
 function buildDetailsPanel(t){
   const planned = t.planned_date || '';
   const due = t.due_date || '';
@@ -1135,10 +1287,7 @@ function buildDetailsPanel(t){
           </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2 mt-3">
-          <button class="btn btn-plain btn-sm" onclick="saveDetails(${t.id})">Save details</button>
-          <button class="btn btn-plain btn-sm text-danger" onclick="deleteTask(${t.id})">Delete task</button>
-        </div>
+        ${buildTaskActionButtons(t.id)}
 
 
         <div id="save-msg-${t.id}" class="small text-success mt-2 d-none">Saved.</div>
@@ -1151,6 +1300,7 @@ function buildDetailsPanel(t){
           <button class="btn btn-plain btn-sm" onclick="addAction(${t.id})">Add</button>
         </div>
         <ul id="actions-list-${t.id}" class="list-unstyled mb-0"></ul>
+        ${buildTaskActionButtons(t.id)}
       </div>
 
       <div id="tab-${t.id}-notes" class="tab-panel">
@@ -1159,6 +1309,7 @@ function buildDetailsPanel(t){
           <button class="btn btn-plain btn-sm" onclick="addNote(${t.id})">Add</button>
         </div>
         <div id="notes-list-${t.id}"></div>
+        ${buildTaskActionButtons(t.id)}
       </div>
 
     </div>
@@ -1287,6 +1438,8 @@ async function toggleComplete(taskId){
     await renderListByFilter();
   }
 
+  await refreshWorkspaceAchievements();
+
   window.scrollTo({
     top: scrollY,
     behavior: 'auto'
@@ -1354,6 +1507,8 @@ async function saveDetails(taskId){
     } else {
       await renderListByFilter();
     }
+
+    await refreshWorkspaceAchievements();
 
   }catch(e){
     let message = 'Could not save task. Please check the task details.';
@@ -1444,6 +1599,7 @@ async function addNote(taskId){
   await apiSend(`${API.tasks}${taskId}/notes/`, 'POST', { text });
   if(input) input.value = '';
   await loadNotes(taskId);
+  await refreshWorkspaceAchievements();
 }
 window.addNote = addNote;
 
@@ -1535,6 +1691,7 @@ async function addAction(taskId){
 
   if(input) input.value = '';
   await loadActions(taskId);
+  await refreshWorkspaceAchievements();
 }
 window.addAction = addAction;
 
@@ -1630,6 +1787,11 @@ window.cancelEditFolder = cancelEditFolder;
 async function deleteSpace(spaceId){
   const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));
   const spaceName = space ? space.name : 'this space';
+
+  if(String(spaceName || '').toLowerCase() === 'waiting_for'){
+    alert('waiting_for is a special space and cannot be deleted.');
+    return;
+  }
 
   let taskCount = 0;
 

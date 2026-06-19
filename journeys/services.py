@@ -7,11 +7,109 @@ from core.models import Task
 from journeys.models import Mission, Achievement, UserMission, UserAchievement
 
 
+def get_required_mission_prerequisites(mission):
+    return Mission.objects.filter(
+        is_active=True,
+        is_required=True,
+    ).filter(
+        models.Q(journey__order__lt=mission.journey.order) |
+        models.Q(
+            journey=mission.journey,
+            order__lt=mission.order,
+        )
+    )
+
+
+def mission_prerequisites_complete(user, mission):
+    prerequisites = get_required_mission_prerequisites(mission)
+
+    if not prerequisites.exists():
+        return True
+
+    completed_required_ids = set(
+        UserMission.objects
+        .filter(
+            user=user,
+            mission__in=prerequisites,
+            completed=True,
+        )
+        .values_list("mission_id", flat=True)
+    )
+
+    return all(mission_id in completed_required_ids for mission_id in prerequisites.values_list("id", flat=True))
+
+
+def get_achievement_rank(achievement):
+    mission = achievement.mission
+
+    if not mission:
+        return (0, 0, 0)
+
+    return (
+        mission.journey.order if mission.journey else 0,
+        mission.order,
+        achievement.id or 0,
+    )
+
+
+def complete_user_mission_if_ready(user_mission):
+    if user_mission.completed:
+        return False
+
+    if user_mission.progress_count < user_mission.mission.target_count:
+        return False
+
+    if not mission_prerequisites_complete(user_mission.user, user_mission.mission):
+        return False
+
+    user_mission.completed = True
+    user_mission.completed_at = timezone.now()
+    user_mission.save(update_fields=["completed", "completed_at"])
+
+    achievement = getattr(user_mission.mission, "achievement", None)
+    if achievement:
+        award_achievement(user_mission.user, achievement)
+
+    return True
+
+
+def get_highest_ranking_user_achievement(user):
+    return (
+        UserAchievement.objects
+        .filter(user=user)
+        .select_related(
+            "achievement",
+            "achievement__mission",
+            "achievement__mission__journey",
+        )
+        .order_by(
+            "-achievement__mission__journey__order",
+            "-achievement__mission__order",
+            "-unlocked_at",
+        )
+        .first()
+    )
+
+
 def award_achievement(user, achievement):
+    current = get_highest_ranking_user_achievement(user)
+
+    if current and get_achievement_rank(current.achievement) > get_achievement_rank(achievement):
+        return current, False
+
+    UserAchievement.objects.filter(user=user).exclude(
+        achievement=achievement
+    ).delete()
+
     user_achievement, created = UserAchievement.objects.get_or_create(
         user=user,
         achievement=achievement,
     )
+
+    if not created and user_achievement.seen:
+        user_achievement.seen = False
+        user_achievement.save(update_fields=["seen"])
+
     return user_achievement, created
 
 
@@ -22,9 +120,12 @@ def complete_mission(user, mission):
     )
 
     user_mission.progress_count = mission.target_count
-    user_mission.completed = True
-    user_mission.completed_at = user_mission.completed_at or timezone.now()
-    user_mission.save()
+    user_mission.save(update_fields=["progress_count"])
+
+    newly_completed = complete_user_mission_if_ready(user_mission)
+
+    if not newly_completed and not user_mission.completed:
+        return user_mission, False
 
     achievement = getattr(mission, "achievement", None)
 
@@ -45,21 +146,14 @@ def update_mission_progress(user, mission_code, progress_count):
         mission=mission,
     )
 
+    if not mission_prerequisites_complete(user, mission):
+        return user_mission, False
+
     user_mission.progress_count = min(progress_count, mission.target_count)
+    user_mission.save(update_fields=["progress_count"])
 
-    newly_completed = False
-
-    if progress_count >= mission.target_count and not user_mission.completed:
-        user_mission.completed = True
-        user_mission.completed_at = timezone.now()
-        newly_completed = True
-
-    user_mission.save()
-
-    if newly_completed:
-        achievement = getattr(mission, "achievement", None)
-        if achievement:
-            return award_achievement(user, achievement)
+    if complete_user_mission_if_ready(user_mission):
+        return user_mission, True
 
     return user_mission, False
 
@@ -381,22 +475,16 @@ def increment_mission_progress(user, mission_code, amount=1):
     if user_mission.completed:
         return user_mission, False
 
+    if not mission_prerequisites_complete(user, mission):
+        return user_mission, False
+
     new_progress = user_mission.progress_count + amount
     user_mission.progress_count = min(new_progress, mission.target_count)
 
-    newly_completed = False
+    user_mission.save(update_fields=["progress_count"])
 
-    if user_mission.progress_count >= mission.target_count:
-        user_mission.completed = True
-        user_mission.completed_at = timezone.now()
-        newly_completed = True
-
-    user_mission.save()
-
-    if newly_completed:
-        achievement = getattr(mission, "achievement", None)
-        if achievement:
-            return award_achievement(user, achievement)
+    if complete_user_mission_if_ready(user_mission):
+        return user_mission, True
 
     return user_mission, False
 
@@ -456,6 +544,8 @@ def track_review_task_update(user, task, old_planned_date, old_due_date, was_com
         mission_code="review_10_tasks",
         amount=1,
     )
+
+    update_mastery_journey_progress(user)
 
 def update_mastery_journey_progress(user):
     completed_count = Task.objects.filter(

@@ -17,6 +17,30 @@
     </div>
   </main>
 
+  <div class="modal fade" id="workspaceAchievementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content achievement-card">
+        <div class="modal-body text-center">
+          <img
+            id="workspaceAchievementBadge"
+            src=""
+            alt=""
+            class="achievement-badge-large d-none mx-auto mb-3">
+
+          <div class="hint mb-1">Achievement Unlocked</div>
+
+          <h2 id="workspaceAchievementName" class="h4 mb-2"></h2>
+
+          <p id="workspaceAchievementMessage" class="mb-4 text-muted"></p>
+
+          <button id="workspaceAchievementContinue" type="button" class="btn workspace-btn-lime">
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     window.FINY = {
       api: {
@@ -30,6 +54,8 @@
         plannedRange: "/api/tasks/planned-range/",
         counts: "/api/tasks/counts/",
         overdue: '/api/tasks/overdue/',
+        achievementStatus: "/api/achievements/status/",
+        achievementSeen: "/api/achievements/",
 
       }
     };

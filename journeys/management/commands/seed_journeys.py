@@ -40,6 +40,7 @@ class Command(BaseCommand):
                     "You have taken the first step toward getting commitments "
                     "out of your head and into a trusted system."
                 ),
+                "badge_image": "Badge1.png",
             },
             {
                 "code": "capture_10_tasks",
@@ -63,6 +64,7 @@ class Command(BaseCommand):
                     "Your brain is for thinking, not remembering. You are "
                     "starting to clear mental overload."
                 ),
+                "badge_image": "Badge2.png",
             },
             {
                 "code": "capture_5_days",
@@ -83,6 +85,7 @@ class Command(BaseCommand):
                     "You are building the habit of capturing commitments before "
                     "they slip away."
                 ),
+                "badge_image": "Badge3.png",
             },
         ]
 
@@ -109,6 +112,7 @@ class Command(BaseCommand):
                     "name": item["achievement_name"],
                     "message": item["achievement_message"],
                     "mission": mission,
+                    "badge_image": item.get("badge_image", ""),
                 },
             )
 
@@ -147,6 +151,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are creating homes for the different responsibilities in your life."
                 ),
+                "badge_image": "Badge4.png",
             },
             {
                 "code": "create_5_spaces",
@@ -168,6 +173,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are learning to organise work by spaces, not just by category."
                 ),
+                "badge_image": "Badge5.png",
             },
             {
                 "code": "plan_3_tasks_with_dates",
@@ -192,6 +198,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are learning to decide when work should happen instead of leaving everything floating in your head."
                 ),
+                "badge_image": "Badge6.png",
             },
             {
                 "code": "add_first_next_action",
@@ -212,6 +219,7 @@ class Command(BaseCommand):
                 "achievement_code": "action_finder",
                 "achievement_name": "Action Finder",
                 "achievement_message": "You turned a task into something you can actually do.",
+                "badge_image": "Badge7.png",
             },
             {
                 "code": "add_first_note",
@@ -233,6 +241,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You added useful context so future you can act with less friction."
                 ),
+                "badge_image": "Badge8.png",
             },
             {
                 "code": "estimate_3_tasks",
@@ -255,6 +264,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are learning to understand the true size of your commitments."
                 ),
+                "badge_image": "Badge9.png",
             },
 
             {
@@ -281,6 +291,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are building a system where tasks are clear and properly organised."
                 ),
+                "badge_image": "Badge10.png",
             },
             {
                 "code": "empty_inbox",
@@ -303,6 +314,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "Every captured item has been reviewed and placed where it belongs."
                 ),
+                "badge_image": "Badge11.png",
             },
         ]
 
@@ -329,6 +341,7 @@ class Command(BaseCommand):
                     "name": item["achievement_name"],
                     "message": item["achievement_message"],
                     "mission": mission,
+                    "badge_image": item.get("badge_image", ""),
                 },
             )
 
@@ -366,6 +379,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are learning to choose today's work instead of reacting to everything."
                 ),
+                "badge_image": "Badge12.png",
             },
             {
                 "code": "complete_5_tasks",
@@ -385,6 +399,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are building momentum by completing work from your trusted system."
                 ),
+                "badge_image": "Badge13.png",
             },
             {
                 "code": "complete_task_with_space",
@@ -406,6 +421,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You used space to complete work that made sense for your situation."
                 ),
+                "badge_image": "Badge14.png",
             },
             {
                 "code": "complete_tasks_on_3_days",
@@ -425,6 +441,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are building the habit of working from your system consistently."
                 ),
+                "badge_image": "Badge15.png",
             },
             {
                 "code": "complete_tasks_from_3_spaces",
@@ -446,6 +463,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You completed work across different spaces and used your system more intelligently."
                 ),
+                "badge_image": "Badge16.png",
             },
             {
                 "code": "complete_15_tasks",
@@ -465,6 +483,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are turning your organised system into consistent execution."
                 ),
+                "badge_image": "Badge17.png",
             },
             {
                 "code": "complete_all_planned_today",
@@ -486,6 +505,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You completed all the work you intentionally planned for today."
                 ),
+                "badge_image": "Badge18.png",
             },
         ]
 
@@ -512,6 +532,7 @@ class Command(BaseCommand):
                     "name": item["achievement_name"],
                     "message": item["achievement_message"],
                     "mission": mission,
+                    "badge_image": item.get("badge_image", ""),
                 },
             )
 
@@ -550,6 +571,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You reviewed something that was waiting on someone or something else."
                 ),
+                "badge_image": "Badge19.png",
             },
             {
                 "code": "reschedule_3_tasks",
@@ -571,6 +593,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You adjusted your system to match reality instead of ignoring stale tasks."
                 ),
+                "badge_image": "Badge20.png",
             },
             {
                 "code": "resolve_needs_attention_task",
@@ -592,6 +615,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You handled a task that needed attention and kept your system current."
                 ),
+                "badge_image": "Badge21.png",
             },
             {
                 "code": "resolve_overdue_task",
@@ -613,6 +637,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You restored control by dealing with an overdue task."
                 ),
+                "badge_image": "Badge22.png",
             },
             {
                 "code": "review_10_tasks",
@@ -634,6 +659,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You are building the habit of keeping your productivity system current."
                 ),
+                "badge_image": "Badge23.png",
             },
         ]
 
@@ -660,6 +686,7 @@ class Command(BaseCommand):
                     "name": item["achievement_name"],
                     "message": item["achievement_message"],
                     "mission": mission,
+                    "badge_image": item.get("badge_image", ""),
                 },
             )
 
@@ -694,6 +721,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You have completed 50 tasks from your trusted system."
                 ),
+                "badge_image": "Badge24.png",
             },
             {
                 "code": "capture_10_days",
@@ -712,6 +740,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "Capturing commitments is becoming a natural habit."
                 ),
+                "badge_image": "Badge25.png",
             },
             {
                 "code": "complete_tasks_10_days",
@@ -730,6 +759,7 @@ class Command(BaseCommand):
                 "achievement_message": (
                     "You have built a consistent execution habit."
                 ),
+                "badge_image": "Badge26.png",
             },
         ]
 
@@ -756,6 +786,7 @@ class Command(BaseCommand):
                     "name": item["achievement_name"],
                     "message": item["achievement_message"],
                     "mission": mission,
+                    "badge_image": item.get("badge_image", ""),
                 },
             )
 

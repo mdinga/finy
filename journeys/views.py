@@ -4,6 +4,41 @@ from django.http import JsonResponse
 from django.views import View
 
 from journeys.models import Journey, Mission, UserMission, UserAchievement
+from journeys.services import (
+    get_highest_ranking_user_achievement,
+    mission_prerequisites_complete,
+)
+
+
+def required_journey_complete(user, journey):
+    required_missions = journey.missions.filter(
+        is_active=True,
+        is_required=True,
+    )
+    total_required = required_missions.count()
+
+    if total_required == 0:
+        return False
+
+    completed_required = UserMission.objects.filter(
+        user=user,
+        mission__in=required_missions,
+        completed=True,
+    ).count()
+
+    return completed_required >= total_required
+
+
+def journey_is_unlocked(user, journey, active_journeys):
+    if journey.order == 1:
+        return True
+
+    if journey.code == "clarify_and_organise":
+        first_journey = active_journeys.filter(order__lt=journey.order).order_by("order").last()
+        return bool(first_journey and required_journey_complete(user, first_journey))
+
+    clarify = active_journeys.filter(code="clarify_and_organise").first()
+    return bool(clarify and required_journey_complete(user, clarify))
 
 
 class HomeView(LoginRequiredMixin, TemplateView):
@@ -18,24 +53,14 @@ class HomeView(LoginRequiredMixin, TemplateView):
             is_active=True
         ).order_by("order")
 
-        # Find first incomplete journey
+        # Find first unlocked incomplete journey
         journey = None
 
         for candidate in active_journeys:
-            required_missions = candidate.missions.filter(
-                is_active=True,
-                is_required=True,
-            )
+            if not journey_is_unlocked(user, candidate, active_journeys):
+                continue
 
-            total_required = required_missions.count()
-
-            completed_required = UserMission.objects.filter(
-                user=user,
-                mission__in=required_missions,
-                completed=True,
-            ).count()
-
-            if total_required == 0 or completed_required < total_required:
+            if not required_journey_complete(user, candidate):
                 journey = candidate
                 break
 
@@ -64,14 +89,13 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 completed_required >= total_required
             )
 
+            is_unlocked = journey_is_unlocked(user, candidate, active_journeys)
+
             is_active_journey = (
-                journey and candidate.id == journey.id
+                is_unlocked and journey and candidate.id == journey.id
             )
 
-            is_locked = (
-                not is_complete and
-                not is_active_journey
-            )
+            is_locked = not is_unlocked
 
             percentage = (
                 round((completed_required / total_required) * 100)
@@ -87,6 +111,11 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 ).first()
 
                 achievement = getattr(mission, "achievement", None)
+                prerequisites_complete = mission_prerequisites_complete(user, mission)
+                is_unlocked_challenge = (
+                    not is_locked and
+                    prerequisites_complete
+                )
 
                 challenges.append({
                     "mission": mission,
@@ -99,6 +128,8 @@ class HomeView(LoginRequiredMixin, TemplateView):
                         if user_mission else False
                     ),
                     "is_required": mission.is_required,
+                    "is_unlocked": is_unlocked_challenge,
+                    "prerequisites_complete": prerequisites_complete,
                     "target_count": mission.target_count,
                     "achievement_name": (
                         achievement.name
@@ -108,6 +139,12 @@ class HomeView(LoginRequiredMixin, TemplateView):
                         achievement.message
                         if achievement else ""
                     ),
+                    "achievement_badge_image": (
+                        achievement.badge_image
+                        if achievement else ""
+                    ),
+                    "video_url": mission.video_source,
+                    "video_title": mission.video_title or "Watch Video",
                 })
 
             journey_map.append({
@@ -118,6 +155,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 "is_complete": is_complete,
                 "is_active": is_active_journey,
                 "is_locked": is_locked,
+                "is_unlocked": is_unlocked,
                 "challenges": challenges,
             })
 
@@ -149,12 +187,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
         context["current_mission"] = current_mission
         context["progress"] = progress
 
-        context["latest_achievement"] = (
-            UserAchievement.objects
-            .filter(user=user)
-            .select_related("achievement")
-            .first()
-        )
+        context["highest_achievement"] = get_highest_ranking_user_achievement(user)
 
         # Bonus missions
         context["bonus_missions"] = []
@@ -186,28 +219,6 @@ class HomeView(LoginRequiredMixin, TemplateView):
                 })
 
             context["bonus_missions"] = bonus_items
-
-        context["unseen_achievement"] = (
-            UserAchievement.objects
-            .filter(user=user, seen=False)
-            .select_related("achievement")
-            .first()
-        )
-
-        context["unseen_mission"] = (
-            UserMission.objects
-            .filter(
-                user=user,
-                completed=True,
-                seen=False,
-            )
-            .select_related(
-                "mission",
-                "mission__journey"
-            )
-            .order_by("-completed_at")
-            .first()
-        )
 
         return context
 
@@ -242,11 +253,7 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             })
 
         context["journey_progress"] = journey_progress
-        context["achievements"] = (
-            UserAchievement.objects
-            .filter(user=user)
-            .select_related("achievement")
-        )
+        context["highest_achievement"] = get_highest_ranking_user_achievement(user)
         context["unseen_achievement"] = (
             UserAchievement.objects
             .filter(user=user, seen=False)

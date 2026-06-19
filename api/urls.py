@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     FolderViewSet, SpaceCategoryViewSet, SpaceViewSet,
     TaskViewSet, TimeLogViewSet, CalendarSummaryView,
+    AchievementStatusView, MarkAchievementSeenAPIView,
 )
 
 app_name = "api"
@@ -17,4 +18,6 @@ router.register(r"timelogs", TimeLogViewSet, basename="timelog")
 urlpatterns = [
     path("", include(router.urls)),
     path("calendar/summary/", CalendarSummaryView.as_view(), name="calendar-summary"),
+    path("achievements/status/", AchievementStatusView.as_view(), name="achievement-status"),
+    path("achievements/<int:pk>/seen/", MarkAchievementSeenAPIView.as_view(), name="achievement-seen"),
 ]

@@ -9,6 +9,7 @@ from django.core.mail import send_mail
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from core.signals import ensure_default_user_items
+from journeys.services import get_highest_ranking_user_achievement
 
 
 
@@ -71,6 +72,7 @@ class UserHomeView(LoginRequiredMixin, TemplateView):
             if user.first_name
             else user.username
         )
+        context["user_badge"] = get_highest_ranking_user_achievement(user)
 
         return context
 

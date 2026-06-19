@@ -12,9 +12,34 @@ class JourneyAdmin(admin.ModelAdmin):
 
 @admin.register(Mission)
 class MissionAdmin(admin.ModelAdmin):
-    list_display = ("id", "code", "name", "journey", "target_count", "order", "is_active")
+    list_display = ("id", "code", "name", "journey", "target_count", "order", "is_active", "has_video")
     list_filter = ("journey", "is_active")
     search_fields = ("code", "name")
+    fieldsets = (
+        (None, {
+            "fields": (
+                "journey",
+                "code",
+                "name",
+                "description",
+                "target_count",
+                "order",
+                "is_active",
+                "is_required",
+            )
+        }),
+        ("Guidance", {
+            "fields": ("guidance_title", "guidance_text", "guidance_tip")
+        }),
+        ("Video", {
+            "fields": ("video_title", "video_file", "video_url")
+        }),
+    )
+
+    def has_video(self, obj):
+        return bool(obj.video_file or obj.video_url)
+
+    has_video.boolean = True
 
 
 @admin.register(Achievement)

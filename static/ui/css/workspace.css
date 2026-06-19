@@ -2336,3 +2336,162 @@ AUTH PAGES
     margin: 0 auto;
   }
 }
+
+.achievement-badge-large {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
+
+.challenge-modal-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.challenge-reward-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.challenge-reward-badge {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+
+.journey-intro {
+  color: #003204;
+  font-size: 1rem;
+}
+
+.journey-identity {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.journey-identity-badge {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.challenge-card-actions {
+  min-width: 150px;
+}
+
+.challenge-video-player {
+  width: 100%;
+  max-height: 70vh;
+  background: #000000;
+  border-radius: 8px;
+}
+
+.challenge-video-prompt {
+  padding: 16px;
+  border: 1px solid rgba(0, 50, 4, 0.10);
+  border-radius: 8px;
+  background: #f7fbf2;
+}
+
+.workspace-badge-strip {
+  width: 100%;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 50, 4, 0.08);
+  display: flex;
+  justify-content: center;
+  padding: 8px 16px 12px;
+}
+
+.workspace-current-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(100%, 420px);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f7fbf2;
+  border: 1px solid rgba(0, 50, 4, 0.10);
+  color: #003204;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.workspace-badge-icon {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.workspace-current-badge.has-badge-image .workspace-badge-fallback,
+.profile-current-badge.has-badge-image .profile-badge-fallback {
+  display: none;
+}
+
+.workspace-current-badge.has-badge-image.badge-image-missing .workspace-badge-icon,
+.profile-current-badge.has-badge-image.badge-image-missing .profile-badge-image {
+  display: none;
+}
+
+.workspace-current-badge.has-badge-image.badge-image-missing .workspace-badge-fallback,
+.profile-current-badge.has-badge-image.badge-image-missing .profile-badge-fallback {
+  display: inline-flex;
+}
+
+.workspace-badge-fallback,
+.profile-badge-fallback {
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7ac142, #c5cf2d);
+  color: #003204;
+  font-weight: 900;
+}
+
+.workspace-badge-fallback {
+  width: 38px;
+  height: 38px;
+}
+
+.workspace-badge-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-current-badge {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid rgba(0, 50, 4, 0.10);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.profile-badge-image,
+.profile-badge-fallback {
+  width: 88px;
+  height: 88px;
+}
+
+.profile-badge-image {
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .profile-current-badge {
+    align-items: flex-start;
+  }
+
+  .profile-badge-image,
+  .profile-badge-fallback {
+    width: 64px;
+    height: 64px;
+  }
+}

@@ -35,9 +35,16 @@ class Mission(models.Model):
     guidance_title = models.CharField(max_length=150, blank=True)
     guidance_text = models.TextField(blank=True)
     guidance_tip = models.TextField(blank=True)
+    video_file = models.FileField(upload_to="mission_videos/", blank=True, null=True)
     video_url = models.URLField(blank=True)
     video_title = models.CharField(max_length=150, blank=True)
 
+
+    @property
+    def video_source(self):
+        if self.video_file:
+            return self.video_file.url
+        return self.video_url
 
 
     class Meta:
@@ -51,6 +58,7 @@ class Achievement(models.Model):
     code = models.SlugField(max_length=80, unique=True)
     name = models.CharField(max_length=120)
     message = models.TextField()
+    badge_image = models.CharField(max_length=120, blank=True)
     mission = models.OneToOneField(
         Mission,
         on_delete=models.CASCADE,

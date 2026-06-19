@@ -8,12 +8,15 @@ from rest_framework.response import Response
 from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
+from django.templatetags.static import static
 from core.models import TaskNote
 from core.repeating import create_next_repeating_task
 from .serializers import TaskNoteSerializer
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog
+from journeys.models import UserAchievement
 from .serializers import FolderSerializer, SpaceCategorySerializer, SpaceSerializer, TaskSerializer, SubtaskSerializer, AttachmentSerializer, TimeLogSerializer
 from journeys.services import (
+    get_highest_ranking_user_achievement,
     update_folder_journey_progress,
     update_space_journey_progress,
     update_next_action_journey_progress,
@@ -98,6 +101,14 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
         space = serializer.save()
         update_space_journey_progress(self.request.user)
         return space
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if instance.name.lower() == "waiting_for":
+            raise ValidationError("Cannot delete waiting_for.")
+
+        return super().destroy(request, *args, **kwargs)
 
 
 class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
@@ -438,3 +449,57 @@ class CalendarSummaryView(APIView):
             resp.setdefault(key, {'tasks': 0, 'estimated_minutes': 0, 'logged_minutes': 0})
             resp[key]['logged_minutes'] = row['total']
         return Response(resp)
+
+
+def serialize_user_achievement(user_achievement):
+    if not user_achievement:
+        return None
+
+    achievement = user_achievement.achievement
+
+    return {
+        "id": user_achievement.id,
+        "name": achievement.name,
+        "message": achievement.message,
+        "badge_image": achievement.badge_image,
+        "badge_url": (
+            static(f"ui/images/icons/{achievement.badge_image}")
+            if achievement.badge_image
+            else ""
+        ),
+    }
+
+
+class AchievementStatusView(APIView):
+    def get(self, request):
+        unseen = (
+            UserAchievement.objects
+            .filter(user=request.user, seen=False)
+            .select_related("achievement")
+            .order_by("unlocked_at")
+            .first()
+        )
+
+        highest = get_highest_ranking_user_achievement(request.user)
+
+        return Response({
+            "unseen": serialize_user_achievement(unseen),
+            "highest": serialize_user_achievement(highest),
+        })
+
+
+class MarkAchievementSeenAPIView(APIView):
+    def post(self, request, pk):
+        user_achievement = UserAchievement.objects.filter(
+            pk=pk,
+            user=request.user,
+            seen=False,
+        ).first()
+
+        if not user_achievement:
+            return Response({"ok": False}, status=404)
+
+        user_achievement.seen = True
+        user_achievement.save(update_fields=["seen"])
+
+        return Response({"ok": True})

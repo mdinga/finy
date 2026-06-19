@@ -7,6 +7,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from core.models import Folder, Space, SpaceCategory, Task
+from journeys.models import Achievement, Journey, Mission, UserAchievement
 
 User = get_user_model()
 
@@ -222,3 +223,77 @@ class TaskCountsAPITests(APITestCase):
         self.assertEqual(data["my_day"], 1)
         self.assertEqual(data["priority"], 2)
         self.assertEqual(data["overdue"], 1)
+
+
+class SpecialSystemItemAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="special@example.com",
+            email="special@example.com",
+            password="pass12345"
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_user_cannot_delete_inbox_folder(self):
+        inbox = Folder.objects.get(user=self.user, is_inbox=True)
+        response = self.client.delete(reverse("api:folder-detail", kwargs={"pk": inbox.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(Folder.objects.filter(pk=inbox.pk).exists())
+
+    def test_user_cannot_delete_waiting_for_space(self):
+        waiting_for = Space.objects.get(user=self.user, name="waiting_for")
+        response = self.client.delete(reverse("api:space-detail", kwargs={"pk": waiting_for.pk}))
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(Space.objects.filter(pk=waiting_for.pk).exists())
+
+
+class AchievementStatusAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="achievementapi@example.com",
+            email="achievementapi@example.com",
+            password="pass12345"
+        )
+        journey = Journey.objects.create(
+            code="api_journey",
+            name="API Journey",
+            order=1,
+        )
+        mission = Mission.objects.create(
+            journey=journey,
+            code="api_mission",
+            name="API Mission",
+            order=1,
+        )
+        achievement = Achievement.objects.create(
+            code="api_badge",
+            name="API Badge",
+            message="Unlocked from API",
+            badge_image="Badge1.png",
+            mission=mission,
+        )
+        self.user_achievement = UserAchievement.objects.create(
+            user=self.user,
+            achievement=achievement,
+        )
+        self.client.force_authenticate(user=self.user)
+
+    def test_status_returns_unseen_and_highest_achievement(self):
+        response = self.client.get(reverse("api:achievement-status"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(data["unseen"]["name"], "API Badge")
+        self.assertEqual(data["highest"]["name"], "API Badge")
+        self.assertIn("Badge1.png", data["highest"]["badge_url"])
+
+    def test_mark_achievement_seen(self):
+        response = self.client.post(
+            reverse("api:achievement-seen", kwargs={"pk": self.user_achievement.pk})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user_achievement.refresh_from_db()
+        self.assertTrue(self.user_achievement.seen)
