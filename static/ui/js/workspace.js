@@ -377,7 +377,7 @@ async function renderCalendarRange(){
   const endISO = toISODate(end);
 
   if(calEls.calTitle){
-    calEls.calTitle.textContent = `My Day · ${fmtUIDate(start)} to ${fmtUIDate(end)}`;
+    calEls.calTitle.textContent = `My Day ${fmtUIDate(start)} to ${fmtUIDate(end)}`;
   }
 
   let tasks = [];
@@ -423,7 +423,7 @@ async function renderCalendarRange(){
   }
 }
 
-function buildCalendarSection(dateObj, tasks, today){
+function buildCalendarSectionLegacy(dateObj, tasks, today){
   const section = document.createElement('section');
   section.className = 'calendar-section';
 
@@ -436,11 +436,11 @@ function buildCalendarSection(dateObj, tasks, today){
   const todayTime = startOfDay(today).getTime();
 
   if(dayTime < todayTime){
-    label = `Past · ${fmtDayHeader(dateObj)}`;
+    label = `Past ${fmtDayHeader(dateObj)}`;
   }else if(dayTime === todayTime){
-    label = `Today · ${fmtDayHeader(dateObj)}`;
+    label = `Today ${fmtDayHeader(dateObj)}`;
   }else if(dayTime === startOfDay(addDays(today, 1)).getTime()){
-    label = `Tomorrow · ${fmtDayHeader(dateObj)}`;
+    label = `Tomorrow ${fmtDayHeader(dateObj)}`;
   }
 
   const total = (tasks || []).reduce((sum, t) => sum + (t.estimated_minutes ? Number(t.estimated_minutes) : 0), 0);
@@ -448,7 +448,7 @@ function buildCalendarSection(dateObj, tasks, today){
   heading.innerHTML = `
     <div>
       <h3 class="calendar-section-title">${esc(label)}</h3>
-      <div class="calendar-section-sub">${tasks.length} tasks · ${esc(fmtMinutesHuman(total))}</div>
+      <div class="calendar-section-sub">${tasks.length} tasks, ${esc(fmtMinutesHuman(total))}</div>
     </div>
   `;
 
@@ -467,6 +467,106 @@ function buildCalendarSection(dateObj, tasks, today){
   return section;
 }
 
+
+function buildCalendarSection(dateObj, tasks, today){
+  const section = document.createElement('section');
+  section.className = 'calendar-section';
+
+  const heading = document.createElement('div');
+  heading.className = 'calendar-section-header';
+
+  let label = fmtDayHeader(dateObj);
+
+  const dayTime = startOfDay(dateObj).getTime();
+  const todayTime = startOfDay(today).getTime();
+
+  if(dayTime < todayTime){
+    label = `Past ${fmtDayHeader(dateObj)}`;
+  }else if(dayTime === todayTime){
+    label = `Today ${fmtDayHeader(dateObj)}`;
+  }else if(dayTime === startOfDay(addDays(today, 1)).getTime()){
+    label = `Tomorrow ${fmtDayHeader(dateObj)}`;
+  }
+
+  const body = document.createElement('div');
+  body.className = 'calendar-section-body';
+
+  const dayTasks = tasks || [];
+  const spaceOptions = getCalendarDaySpaceOptions(dayTasks);
+  let activeSpaceId = '';
+
+  function renderDayTasks(){
+    const filteredTasks = activeSpaceId
+      ? dayTasks.filter(t => Array.isArray(t.spaces) && t.spaces.map(String).includes(String(activeSpaceId)))
+      : dayTasks;
+
+    const total = filteredTasks.reduce(
+      (sum, t) => sum + (t.estimated_minutes ? Number(t.estimated_minutes) : 0),
+      0
+    );
+
+    heading.innerHTML = `
+      <div class="calendar-section-heading-main">
+        <h3 class="calendar-section-title">${esc(label)}</h3>
+        <div class="calendar-section-sub">${filteredTasks.length} tasks, ${esc(fmtMinutesHuman(total))}</div>
+      </div>
+      ${spaceOptions.length ? `
+        <div class="calendar-day-filter">
+          <label class="calendar-day-filter-label" for="calendar-space-${toISODate(dateObj)}">Filter by space</label>
+          <select id="calendar-space-${toISODate(dateObj)}" class="form-select form-select-sm calendar-space-filter">
+            <option value="">All spaces</option>
+            ${spaceOptions.map(space => `
+              <option value="${space.id}" ${String(space.id) === String(activeSpaceId) ? 'selected' : ''}>
+                ${esc(space.name)}
+              </option>
+            `).join('')}
+          </select>
+          <button type="button" class="btn btn-plain btn-sm calendar-space-clear ${activeSpaceId ? '' : 'd-none'}">
+            Clear
+          </button>
+        </div>
+      ` : ''}
+    `;
+
+    body.innerHTML = '';
+
+    if(!filteredTasks.length){
+      body.innerHTML = activeSpaceId
+        ? `<div class="text-muted small">No tasks for this space.</div>`
+        : `<div class="text-muted small">No planned tasks.</div>`;
+    }else{
+      filteredTasks.forEach(t => body.appendChild(buildTaskCard(t)));
+    }
+
+    heading.querySelector('.calendar-space-filter')?.addEventListener('change', function(){
+      activeSpaceId = this.value || '';
+      renderDayTasks();
+    });
+
+    heading.querySelector('.calendar-space-clear')?.addEventListener('click', function(){
+      activeSpaceId = '';
+      renderDayTasks();
+    });
+  }
+
+  renderDayTasks();
+
+  section.appendChild(heading);
+  section.appendChild(body);
+  return section;
+}
+
+function getCalendarDaySpaceOptions(tasks){
+  const ids = new Set();
+
+  (tasks || []).forEach(t => {
+    (t.spaces || []).forEach(spaceId => ids.add(String(spaceId)));
+  });
+
+  return (spacesCache || [])
+    .filter(space => ids.has(String(space.id)))
+    .sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
 
 async function openTaskModal(taskId){
   const body = document.getElementById('taskModalBody');
@@ -1503,6 +1603,7 @@ async function saveDetails(taskId){
   try{
     console.log("SAVE DETAILS PAYLOAD", payload);
     await apiSend(`${API.tasks}${taskId}/`, 'PATCH', payload);
+    await savePendingTaskTextItems(taskId);
 
     const summary = document.getElementById('spaces-summary-' + taskId);
     if(summary){
@@ -1549,6 +1650,23 @@ async function saveDetails(taskId){
   }
 }
 window.saveDetails = saveDetails;
+
+async function savePendingTaskTextItems(taskId){
+  const actionInput = document.getElementById('new-action-' + taskId);
+  const noteInput = document.getElementById('new-note-' + taskId);
+  const actionTitle = (actionInput?.value || '').trim();
+  const noteText = (noteInput?.value || '').trim();
+
+  if(actionTitle){
+    await apiSend(`${API.tasks}${taskId}/actions/`, 'POST', { title: actionTitle });
+    if(actionInput) actionInput.value = '';
+  }
+
+  if(noteText){
+    await apiSend(`${API.tasks}${taskId}/notes/`, 'POST', { text: noteText });
+    if(noteInput) noteInput.value = '';
+  }
+}
 
 async function deleteTask(taskId){
   const msg =

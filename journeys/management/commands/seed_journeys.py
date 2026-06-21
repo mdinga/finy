@@ -299,7 +299,7 @@ class Command(BaseCommand):
                 "description": "Process every captured task so your inbox is clear.",
                 "target_count": 1,
                 "order": 8,
-                "is_required": False,
+                "is_required": True,
                 "guidance_title": "Process what you capture",
                 "guidance_text": (
                     "Capturing is only the first step. Reviewing and organising your inbox "

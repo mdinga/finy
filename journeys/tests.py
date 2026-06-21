@@ -524,3 +524,22 @@ class FocusJourneyWaitingForTests(TestCase):
         self.assertEqual(waiting_for.order, complete_5.order + 1)
         self.assertEqual(achievement.mission, waiting_for)
         self.assertEqual(achievement.badge_image, "Badge12.png")
+
+
+class SeedJourneyContentTests(TestCase):
+    def test_empty_inbox_is_required_last_clarify_challenge(self):
+        call_command("seed_journeys", verbosity=0)
+
+        clarify = Journey.objects.get(code="clarify_and_organise")
+        empty_inbox = Mission.objects.get(code="empty_inbox")
+        required_orders = list(
+            Mission.objects.filter(
+                journey=clarify,
+                is_active=True,
+                is_required=True,
+            ).values_list("order", flat=True)
+        )
+
+        self.assertEqual(empty_inbox.journey, clarify)
+        self.assertTrue(empty_inbox.is_required)
+        self.assertEqual(empty_inbox.order, max(required_orders))
