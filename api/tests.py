@@ -249,6 +249,95 @@ class SpecialSystemItemAPITests(APITestCase):
         self.assertTrue(Space.objects.filter(pk=waiting_for.pk).exists())
 
 
+class SidebarPinningAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="pins@example.com",
+            email="pins@example.com",
+            password="pass12345",
+        )
+        self.category = SpaceCategory.objects.create(name="Pin Category")
+        self.client.force_authenticate(user=self.user)
+
+    def test_user_can_pin_up_to_three_folders(self):
+        folders = [
+            Folder.objects.create(user=self.user, name=f"Folder {index}")
+            for index in range(4)
+        ]
+
+        for folder in folders[:3]:
+            response = self.client.patch(
+                reverse("api:folder-detail", kwargs={"pk": folder.pk}),
+                {"is_pinned": True},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.patch(
+            reverse("api:folder-detail", kwargs={"pk": folders[3].pk}),
+            {"is_pinned": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            Folder.objects.filter(user=self.user, is_pinned=True).count(),
+            3,
+        )
+
+    def test_user_can_unpin_folder_and_pin_another(self):
+        folders = [
+            Folder.objects.create(user=self.user, name=f"Folder {index}", is_pinned=index < 3)
+            for index in range(4)
+        ]
+
+        response = self.client.patch(
+            reverse("api:folder-detail", kwargs={"pk": folders[0].pk}),
+            {"is_pinned": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.patch(
+            reverse("api:folder-detail", kwargs={"pk": folders[3].pk}),
+            {"is_pinned": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(Folder.objects.get(pk=folders[3].pk).is_pinned)
+
+    def test_user_can_pin_up_to_three_spaces(self):
+        spaces = [
+            Space.objects.create(
+                user=self.user,
+                name=f"space_{index}",
+                category=self.category,
+            )
+            for index in range(4)
+        ]
+
+        for space in spaces[:3]:
+            response = self.client.patch(
+                reverse("api:space-detail", kwargs={"pk": space.pk}),
+                {"is_pinned": True},
+                format="json",
+            )
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        response = self.client.patch(
+            reverse("api:space-detail", kwargs={"pk": spaces[3].pk}),
+            {"is_pinned": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            Space.objects.filter(user=self.user, is_pinned=True).count(),
+            3,
+        )
+
+
 class AchievementStatusAPITests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(

@@ -271,20 +271,20 @@ class Command(BaseCommand):
                 "code": "organise_5_tasks",
                 "name": "Organise 5 tasks completely",
                 "description": (
-                    "Organise 5 tasks by giving each one a folder, space, dates, "
-                    "estimated time, next action, and note."
+                    "Organise 5 tasks by moving each one into a folder, adding "
+                    "a space, and choosing planned and due dates."
                 ),
                 "target_count": 5,
                 "order": 7,
                 "is_required": True,
                 "guidance_title": "Build a trusted system",
                 "guidance_text": (
-                    "A well organised task has a home, a space, and a clear next action. "
-                    "This makes it easier to know what to do next."
+                    "A well organised task has a home, a space, and clear dates. "
+                    "Notes, next actions and estimated time can add more context when useful."
                 ),
                 "guidance_tip": (
                     "Each task should have a folder, at least one space, planned date, "
-                    "due date, estimated time, next action, and note."
+                    "and due date. Estimated time, notes and next actions are optional."
                 ),
                 "achievement_code": "organiser",
                 "achievement_name": "Organiser",
@@ -360,33 +360,11 @@ class Command(BaseCommand):
 
         focus_missions = [
             {
-                "code": "plan_3_tasks_today",
-                "name": "Plan 3 tasks for today",
-                "description": "Choose 3 tasks you intend to work on today.",
-                "target_count": 3,
-                "order": 1,
-                "is_required": True,
-                "guidance_title": "Choose today's work intentionally",
-                "guidance_text": (
-                    "My Day helps you decide what deserves your attention today. "
-                    "Planning your day prevents everything from feeling equally urgent."
-                ),
-                "guidance_tip": (
-                    "Set the planned date to today for 3 tasks you realistically intend to work on."
-                ),
-                "achievement_code": "daily_planner",
-                "achievement_name": "Daily Planner",
-                "achievement_message": (
-                    "You are learning to choose today's work instead of reacting to everything."
-                ),
-                "badge_image": "Badge12.png",
-            },
-            {
                 "code": "complete_5_tasks",
                 "name": "Complete 5 tasks",
                 "description": "Complete 5 tasks from your trusted system.",
                 "target_count": 5,
-                "order": 2,
+                "order": 1,
                 "is_required": True,
                 "guidance_title": "Build execution momentum",
                 "guidance_text": (
@@ -400,6 +378,31 @@ class Command(BaseCommand):
                     "You are building momentum by completing work from your trusted system."
                 ),
                 "badge_image": "Badge13.png",
+            },
+            {
+                "code": "use_waiting_for_space",
+                "name": "Use the waiting_for space",
+                "description": "Assign the waiting_for space to a task that depends on someone else.",
+                "target_count": 1,
+                "order": 2,
+                "is_required": True,
+                "guidance_title": "Track what depends on others",
+                "guidance_text": (
+                    "Some commitments cannot move until someone else responds or completes "
+                    "their part. Use waiting_for to keep those items visible without treating "
+                    "them like work you can finish yourself today."
+                ),
+                "guidance_tip": (
+                    "Open a task that depends on someone else, add a note if useful, assign "
+                    "the waiting_for space, and adjust the dates if you want a reminder to follow up."
+                ),
+                "achievement_code": "waiting_for_tracker",
+                "achievement_name": "Waiting For Tracker",
+                "achievement_message": (
+                    "You are learning to keep delegated or dependent work visible without "
+                    "letting it clutter your active focus."
+                ),
+                "badge_image": "Badge12.png",
             },
             {
                 "code": "complete_task_with_space",
@@ -535,6 +538,8 @@ class Command(BaseCommand):
                     "badge_image": item.get("badge_image", ""),
                 },
             )
+
+        Mission.objects.filter(code="plan_3_tasks_today").update(is_active=False)
 
         review, _ = Journey.objects.update_or_create(
             code="review_and_stay_in_control",

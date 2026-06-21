@@ -4,10 +4,31 @@ from django.utils import timezone
 from core.models import Folder, Space, Subtask, TaskNote
 
 from core.models import Task
-from journeys.models import Mission, Achievement, UserMission, UserAchievement
+from journeys.models import Journey, Mission, Achievement, UserMission, UserAchievement
+
+ORDER_FREE_JOURNEY_CODES = {
+    "work_with_focus",
+    "review_and_stay_in_control",
+    "master_your_commitments",
+}
 
 
 def get_required_mission_prerequisites(mission):
+    if mission.journey and mission.journey.code in ORDER_FREE_JOURNEY_CODES:
+        clarify = Journey.objects.filter(
+            code="clarify_and_organise",
+            is_active=True,
+        ).first()
+
+        if not clarify:
+            return Mission.objects.none()
+
+        return Mission.objects.filter(
+            journey=clarify,
+            is_active=True,
+            is_required=True,
+        )
+
     return Mission.objects.filter(
         is_active=True,
         is_required=True,
@@ -284,19 +305,13 @@ def update_organised_tasks_progress(user):
 
     for task in tasks:
         has_space = task.spaces.exists()
-        has_next_action = task.subtasks.exists()
-        has_note = task.notes.exists()
         has_planned_date = task.planned_date is not None
         has_due_date = task.due_date is not None
-        has_estimate = task.estimated_minutes is not None
 
         if (
             has_space and
-            has_next_action and
-            has_note and
             has_planned_date and
-            has_due_date and
-            has_estimate
+            has_due_date
         ):
             organised_count += 1
 
@@ -333,19 +348,13 @@ def update_inbox_journey_progress(user):
 
     for task in tasks_outside_inbox:
         has_space = task.spaces.exists()
-        has_next_action = task.subtasks.exists()
-        has_note = task.notes.exists()
         has_planned_date = task.planned_date is not None
         has_due_date = task.due_date is not None
-        has_estimate = task.estimated_minutes is not None
 
         if (
             has_space and
-            has_next_action and
-            has_note and
             has_planned_date and
-            has_due_date and
-            has_estimate
+            has_due_date
         ):
             organised_count += 1
 
@@ -358,20 +367,6 @@ def update_inbox_journey_progress(user):
     )
 
 def update_focus_journey_progress(user):
-    today = timezone.localdate()
-
-    planned_today_count = Task.objects.filter(
-        user=user,
-        completed=False,
-        planned_date=today,
-    ).count()
-
-    update_mission_progress(
-        user=user,
-        mission_code="plan_3_tasks_today",
-        progress_count=planned_today_count,
-    )
-
     completed_count = Task.objects.filter(
         user=user,
         completed=True,
@@ -387,6 +382,18 @@ def update_focus_journey_progress(user):
         user=user,
         mission_code="complete_15_tasks",
         progress_count=completed_count,
+    )
+
+    waiting_for_count = Task.objects.filter(
+        user=user,
+        completed=False,
+        spaces__name__iexact="waiting_for",
+    ).distinct().count()
+
+    update_mission_progress(
+        user=user,
+        mission_code="use_waiting_for_space",
+        progress_count=waiting_for_count,
     )
 
     completed_with_space_count = Task.objects.filter(
@@ -437,6 +444,8 @@ def update_focus_journey_progress(user):
         mission_code="complete_tasks_from_3_spaces",
         progress_count=distinct_completed_spaces_count,
     )
+
+    today = timezone.localdate()
 
     planned_today_total = Task.objects.filter(
         user=user,

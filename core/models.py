@@ -17,6 +17,7 @@ class Folder(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='folders')
     name = models.CharField(max_length=100)
     is_inbox = models.BooleanField(default=False)
+    is_pinned = models.BooleanField(default=False)
     description = models.TextField(blank=True)
 
     class Meta:
@@ -55,6 +56,7 @@ class Space(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='spaces')
     name = models.CharField(max_length=50)
     category = models.ForeignKey(SpaceCategory, on_delete=models.PROTECT, related_name='spaces')
+    is_pinned = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'name', 'category')

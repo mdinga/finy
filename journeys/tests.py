@@ -1,11 +1,16 @@
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
+from core.models import Folder, Space, SpaceCategory, Task
 from journeys.models import Achievement, Journey, Mission, UserAchievement, UserMission
 from journeys.services import (
     award_achievement,
     get_highest_ranking_user_achievement,
+    update_organised_tasks_progress,
+    update_focus_journey_progress,
     update_mission_progress,
 )
 
@@ -271,6 +276,44 @@ class JourneyUnlockTests(TestCase):
         self.assertFalse(locked_by_code["review_and_stay_in_control"])
         self.assertFalse(locked_by_code["master_your_commitments"])
 
+    def test_unlocked_later_journey_challenges_are_available_in_any_order(self):
+        second_focus_mission = Mission.objects.create(
+            journey=self.execute,
+            code="second_focus_required",
+            name="Second Focus Required",
+            order=2,
+            is_required=True,
+        )
+
+        update_mission_progress(self.user, "capture_required", 1)
+        update_mission_progress(self.user, "clarify_required", 1)
+
+        update_mission_progress(self.user, second_focus_mission.code, 1)
+
+        user_mission = UserMission.objects.get(
+            user=self.user,
+            mission=second_focus_mission,
+        )
+
+        self.assertEqual(user_mission.progress_count, 1)
+        self.assertTrue(user_mission.completed)
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("journeys:home"))
+
+        focus_item = next(
+            item for item in response.context["journey_map"]
+            if item["journey"].code == "work_with_focus"
+        )
+
+        unlocked_by_code = {
+            challenge["mission"].code: challenge["is_unlocked"]
+            for challenge in focus_item["challenges"]
+        }
+
+        self.assertTrue(unlocked_by_code["work_with_focus_required"])
+        self.assertTrue(unlocked_by_code["second_focus_required"])
+
     def test_journey_page_does_not_render_notification_overlays(self):
         update_mission_progress(self.user, "capture_required", 1)
 
@@ -279,3 +322,205 @@ class JourneyUnlockTests(TestCase):
 
         self.assertNotContains(response, "Challenge Complete")
         self.assertNotContains(response, "Achievement Unlocked")
+
+
+class OrganisedTasksProgressTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="organise@example.com",
+            email="organise@example.com",
+            password="pass12345",
+        )
+        self.journey = Journey.objects.create(
+            code="clarify_and_organise",
+            name="Clarify and Organise",
+            order=1,
+        )
+        self.mission = Mission.objects.create(
+            journey=self.journey,
+            code="organise_5_tasks",
+            name="Organise 5 tasks",
+            target_count=5,
+            order=1,
+            is_required=True,
+        )
+        self.inbox = Folder.objects.get(
+            user=self.user,
+            is_inbox=True,
+        )
+        self.folder = Folder.objects.create(
+            user=self.user,
+            name="Work",
+        )
+        self.category, _ = SpaceCategory.objects.get_or_create(name="Other")
+        self.space = Space.objects.create(
+            user=self.user,
+            name="office",
+            category=self.category,
+        )
+
+    def test_estimate_note_and_next_action_are_optional_for_organising_tasks(self):
+        today = timezone.localdate()
+
+        for index in range(5):
+            task = Task.objects.create(
+                user=self.user,
+                folder=self.folder,
+                title=f"Task {index}",
+                planned_date=today,
+                due_date=today,
+            )
+            task.spaces.add(self.space)
+
+        update_organised_tasks_progress(self.user)
+
+        user_mission = UserMission.objects.get(
+            user=self.user,
+            mission=self.mission,
+        )
+
+        self.assertEqual(user_mission.progress_count, 5)
+        self.assertTrue(user_mission.completed)
+
+    def test_space_planned_date_and_due_date_are_required_for_organising_tasks(self):
+        today = timezone.localdate()
+
+        missing_space = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Missing space",
+            planned_date=today,
+            due_date=today,
+        )
+        missing_due_date = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Missing due date",
+            planned_date=today,
+        )
+        missing_due_date.spaces.add(self.space)
+
+        complete_task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Complete",
+            planned_date=today,
+            due_date=today,
+        )
+        complete_task.spaces.add(self.space)
+
+        update_organised_tasks_progress(self.user)
+
+        user_mission = UserMission.objects.get(
+            user=self.user,
+            mission=self.mission,
+        )
+
+        self.assertEqual(user_mission.progress_count, 1)
+        self.assertFalse(user_mission.completed)
+
+
+class FocusJourneyWaitingForTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="focus@example.com",
+            email="focus@example.com",
+            password="pass12345",
+        )
+        self.clarify = Journey.objects.create(
+            code="clarify_and_organise",
+            name="Clarify and Organise",
+            order=2,
+        )
+        self.clarify_mission = Mission.objects.create(
+            journey=self.clarify,
+            code="clarify_required_for_focus",
+            name="Clarify Required",
+            target_count=1,
+            order=1,
+            is_required=True,
+        )
+        self.focus = Journey.objects.create(
+            code="work_with_focus",
+            name="Work with Focus",
+            order=3,
+        )
+        self.waiting_for_mission = Mission.objects.create(
+            journey=self.focus,
+            code="use_waiting_for_space",
+            name="Use the waiting_for space",
+            target_count=1,
+            order=2,
+            is_required=True,
+        )
+        self.folder = Folder.objects.create(
+            user=self.user,
+            name="Work",
+        )
+        self.waiting_for = Space.objects.get(
+            user=self.user,
+            name="waiting_for",
+        )
+
+    def test_waiting_for_challenge_completes_when_space_is_assigned(self):
+        update_mission_progress(self.user, self.clarify_mission.code, 1)
+
+        task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Follow up with supplier",
+        )
+        task.spaces.add(self.waiting_for)
+
+        update_focus_journey_progress(self.user)
+
+        user_mission = UserMission.objects.get(
+            user=self.user,
+            mission=self.waiting_for_mission,
+        )
+
+        self.assertEqual(user_mission.progress_count, 1)
+        self.assertTrue(user_mission.completed)
+
+    def test_waiting_for_challenge_does_not_require_note_or_date_changes(self):
+        update_mission_progress(self.user, self.clarify_mission.code, 1)
+
+        task = Task.objects.create(
+            user=self.user,
+            folder=self.folder,
+            title="Waiting without extras",
+            planned_date=None,
+            due_date=None,
+        )
+        task.spaces.add(self.waiting_for)
+
+        update_focus_journey_progress(self.user)
+
+        self.assertTrue(
+            UserMission.objects.get(
+                user=self.user,
+                mission=self.waiting_for_mission,
+            ).completed
+        )
+
+    def test_seed_replaces_plan_today_with_waiting_for_challenge(self):
+        Mission.objects.create(
+            journey=self.focus,
+            code="plan_3_tasks_today",
+            name="Plan 3 tasks for today",
+            order=1,
+            is_required=True,
+            is_active=True,
+        )
+
+        call_command("seed_journeys", verbosity=0)
+
+        plan_today = Mission.objects.get(code="plan_3_tasks_today")
+        complete_5 = Mission.objects.get(code="complete_5_tasks")
+        waiting_for = Mission.objects.get(code="use_waiting_for_space")
+        achievement = Achievement.objects.get(code="waiting_for_tracker")
+
+        self.assertFalse(plan_today.is_active)
+        self.assertEqual(waiting_for.order, complete_5.order + 1)
+        self.assertEqual(achievement.mission, waiting_for)
+        self.assertEqual(achievement.badge_image, "Badge12.png")

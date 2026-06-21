@@ -21,6 +21,14 @@ const API = (window.FINY && window.FINY.api) ? window.FINY.api : {
 function csrftoken(){ return document.getElementById('csrf')?.value || ''; }
 function esc(s){ return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
+function sortPinnedFirst(items){
+  return (items || []).slice().sort((a,b) => {
+    const pinnedDelta = (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0);
+    if(pinnedDelta) return pinnedDelta;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+}
+
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtUIDate(d){
   if(!d) return '';
@@ -517,7 +525,7 @@ async function renderSidebar(){
   const sRes = await apiGet(API.spaces);
   spacesCache = sRes.results || sRes || [];
 
-  const folders = foldersCache.filter(f => !f.is_inbox).sort((a,b)=>a.name.localeCompare(b.name));
+  const folders = sortPinnedFirst(foldersCache.filter(f => !f.is_inbox));
     let taskCounts = {
     inbox: 0,
     completed: 0,
@@ -537,12 +545,14 @@ const folderCounts = taskCounts.folders || {};
     folderList.innerHTML = folders.map(f => (
       `<li class="list-group-item d-flex align-items-center" data-id="${f.id}">
         <button class="btn btn-link btn-sm text-decoration-none text-reset list-title-btn" onclick="filterByFolder('${f.id}')">${esc(f.name)}</button>
+        ${f.is_pinned ? '<span class="badge pinned-badge me-2">Pinned</span>' : ''}
         <span id="folder-count-${f.id}" class="badge rounded-pill count-badge me-2">${folderCounts[f.id] ?? 0}</span>
         <div class="dropdown kebab">
           <button class="btn btn-plain btn-sm btn-kebab" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Folder actions">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
+            <li><button class="dropdown-item" onclick="toggleFolderPin('${f.id}')">${f.is_pinned ? 'Unpin' : 'Pin'}</button></li>
             <li><button class="dropdown-item" onclick="startEditFolder('${f.id}')">Edit</button></li>
             <li><button class="dropdown-item text-danger" onclick="deleteFolder('${f.id}')">Delete</button></li>
           </ul>
@@ -551,7 +561,7 @@ const folderCounts = taskCounts.folders || {};
     )).join('');
   }
 
-  const spaces = (spacesCache || []).sort((a,b)=>a.name.localeCompare(b.name));
+  const spaces = sortPinnedFirst(spacesCache || []);
   const spaceCounts = taskCounts.spaces || {};
 
   const spaceList = document.getElementById('spaceList');
@@ -559,16 +569,20 @@ const folderCounts = taskCounts.folders || {};
     spaceList.innerHTML = spaces.map(s => (
       `<li class="list-group-item d-flex align-items-center" data-id="${s.id}">
         <button class="btn btn-link btn-sm text-decoration-none text-reset list-title-btn" onclick="filterBySpace('${s.id}')">${esc(s.name)}</button>
+        ${s.is_pinned ? '<span class="badge pinned-badge me-2">Pinned</span>' : ''}
         <span id="space-count-${s.id}" class="badge rounded-pill count-badge me-2">${spaceCounts[s.id] ?? 0}</span>
-        ${String(s.name || '').toLowerCase() === 'waiting_for' ? '' : `<div class="dropdown kebab">
+        <div class="dropdown kebab">
           <button class="btn btn-plain btn-sm btn-kebab" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Space actions">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
           </button>
           <ul class="dropdown-menu dropdown-menu-end">
-            <li><button class="dropdown-item" onclick="startEditSpace('${s.id}')">Edit</button></li>
-            <li><button class="dropdown-item text-danger" onclick="deleteSpace('${s.id}')">Delete</button></li>
+            <li><button class="dropdown-item" onclick="toggleSpacePin('${s.id}')">${s.is_pinned ? 'Unpin' : 'Pin'}</button></li>
+            ${String(s.name || '').toLowerCase() === 'waiting_for' ? '' : `
+              <li><button class="dropdown-item" onclick="startEditSpace('${s.id}')">Edit</button></li>
+              <li><button class="dropdown-item text-danger" onclick="deleteSpace('${s.id}')">Delete</button></li>
+            `}
           </ul>
-        </div>`}
+        </div>
       </li>`
     )).join('');
   }
@@ -1081,8 +1095,6 @@ async function renderListByFilter(){
 }
 
 function jumpToWorkspaceMain(){
-    if(window.innerWidth >= 992) return;
-
     const main = document.getElementById('workspaceMain');
     if(!main) return;
 
@@ -1704,6 +1716,27 @@ window.deleteAction = deleteAction;
 
 /* Folder and space edit/delete */
 
+function sidebarPinError(error, fallback){
+  const message = String(error?.message || '');
+  const match = message.match(/"is_pinned":\s*\["([^"]+)"/);
+  alert(match ? match[1] : fallback);
+}
+
+async function toggleFolderPin(folderId){
+  const folder = (foldersCache || []).find(f => String(f.id) === String(folderId));
+  if(!folder) return;
+
+  try{
+    await apiSend(`${API.folders}${folderId}/`, 'PATCH', {
+      is_pinned: !folder.is_pinned
+    });
+    await renderSidebar();
+  }catch(e){
+    sidebarPinError(e, 'You can pin up to 3 folders.');
+  }
+}
+window.toggleFolderPin = toggleFolderPin;
+
 async function deleteFolder(folderId){
   const folder = (foldersCache || []).find(f => String(f.id) === String(folderId));
   const folderName = folder ? folder.name : 'this folder';
@@ -1783,6 +1816,21 @@ async function cancelEditFolder(){
   await renderSidebar();
 }
 window.cancelEditFolder = cancelEditFolder;
+
+async function toggleSpacePin(spaceId){
+  const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));
+  if(!space) return;
+
+  try{
+    await apiSend(`${API.spaces}${spaceId}/`, 'PATCH', {
+      is_pinned: !space.is_pinned
+    });
+    await renderSidebar();
+  }catch(e){
+    sidebarPinError(e, 'You can pin up to 3 spaces.');
+  }
+}
+window.toggleSpacePin = toggleSpacePin;
 
 async function deleteSpace(spaceId){
   const space = (spacesCache || []).find(s => String(s.id) === String(spaceId));

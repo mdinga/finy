@@ -2,10 +2,18 @@
 from django import forms
 from core.models import Task, Subtask, Attachment, Space, Folder
 from django.contrib.auth import get_user_model
+from .models import SignupCoupon
 
 User = get_user_model()
 
 class RegistrationForm(forms.ModelForm):
+    coupon_code = forms.CharField(
+        label="Coupon code",
+        widget=forms.TextInput(attrs={
+            "placeholder": "Enter your invite code",
+            "autocomplete": "off",
+        })
+    )
     password1 = forms.CharField(
         label="Password",
         widget=forms.PasswordInput(attrs={
@@ -40,6 +48,20 @@ class RegistrationForm(forms.ModelForm):
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError("An account with this email already exists.")
         return email
+
+    def clean_coupon_code(self):
+        code = (self.cleaned_data.get("coupon_code") or "").strip().upper()
+
+        try:
+            coupon = SignupCoupon.objects.get(code__iexact=code)
+        except SignupCoupon.DoesNotExist:
+            raise forms.ValidationError("Enter a valid coupon code.")
+
+        if not coupon.can_be_redeemed():
+            raise forms.ValidationError("This coupon code is no longer available.")
+
+        self.coupon = coupon
+        return code
 
     def clean(self):
         cleaned = super().clean()

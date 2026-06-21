@@ -18,7 +18,7 @@ from journeys.services import (
 class FolderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Folder
-        fields = ['id', 'name', 'is_inbox', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'is_inbox', 'is_pinned', 'created_at', 'updated_at']
         read_only_fields = ['is_inbox']
 
     def validate_name(self, value):
@@ -26,6 +26,33 @@ class FolderSerializer(serializers.ModelSerializer):
         if instance and instance.is_inbox and value != 'Inbox':
             raise serializers.ValidationError('Inbox name is locked to "Inbox".')
         return value
+
+    def validate(self, data):
+        instance = getattr(self, "instance", None)
+
+        if data.get("is_pinned") is True:
+            request = self.context.get("request")
+            user = request.user if request and request.user.is_authenticated else None
+
+            if instance and instance.is_inbox:
+                raise serializers.ValidationError({"is_pinned": "Inbox cannot be pinned."})
+
+            if user:
+                pinned = Folder.objects.filter(
+                    user=user,
+                    is_inbox=False,
+                    is_pinned=True,
+                )
+
+                if instance:
+                    pinned = pinned.exclude(pk=instance.pk)
+
+                if pinned.count() >= 3:
+                    raise serializers.ValidationError(
+                        {"is_pinned": "You can pin up to 3 folders."}
+                    )
+
+        return data
 
 class SpaceCategorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -37,7 +64,7 @@ class SpaceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Space
-        fields = ['id', 'name', 'category']
+        fields = ['id', 'name', 'category', 'is_pinned']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -82,6 +109,24 @@ class SpaceSerializer(serializers.ModelSerializer):
 
         if "name" in data:
             data["name"] = self._apply_prefix(data["name"], category)
+
+        if data.get("is_pinned") is True:
+            request = self.context.get("request")
+            user = request.user if request and request.user.is_authenticated else None
+
+            if user:
+                pinned = Space.objects.filter(
+                    user=user,
+                    is_pinned=True,
+                )
+
+                if self.instance:
+                    pinned = pinned.exclude(pk=self.instance.pk)
+
+                if pinned.count() >= 3:
+                    raise serializers.ValidationError(
+                        {"is_pinned": "You can pin up to 3 spaces."}
+                    )
 
         return data
 
