@@ -6,12 +6,13 @@ from django.contrib.auth.views import (
     PasswordResetConfirmView,
     PasswordResetCompleteView,
 )
-from .views import HomeView, AboutContactView, UserHomeView, login_view, register_view
+from .views import HomeView, PricingView, AboutContactView, UserHomeView, login_view, register_view
 
 app_name = "ui"
 
 urlpatterns = [
     path("", HomeView.as_view(), name="home"),
+    path("pricing/", PricingView.as_view(), name="pricing"),
     path("about-contact/", AboutContactView.as_view(), name="about_contact"),
     path("login/", login_view, name="login"),
     path("register/", register_view, name="register"),

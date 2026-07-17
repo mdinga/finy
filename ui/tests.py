@@ -7,6 +7,7 @@ from datetime import timedelta
 from core.models import Folder, Space, SpaceCategory
 from ui.models import SignupCoupon, SignupCouponRedemption
 from subscriptions.models import Subscription
+from subscriptions.models import Plan
 
 User = get_user_model()
 
@@ -157,3 +158,91 @@ class RegistrationFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, reverse("journeys:home"))
+
+
+class PricingPageTests(TestCase):
+    def test_public_pricing_page_uses_active_plans_in_display_order(self):
+        Plan.objects.filter(slug="free").update(display_order=2)
+        Plan.objects.filter(slug="basic").update(display_order=1)
+        Plan.objects.filter(slug="pro").update(is_active=False)
+
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [plan.slug for plan in response.context["plans"]],
+            ["basic", "free"],
+        )
+        self.assertNotContains(response, "Pro")
+
+    def test_anonymous_free_plan_links_to_registration(self):
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertContains(response, "Free")
+        self.assertContains(
+            response,
+            f'href="{reverse("ui:register")}" data-plan-action="get-started"',
+            html=False,
+        )
+        self.assertContains(response, "Get Started")
+
+    def test_authenticated_free_plan_links_to_finy(self):
+        user = User.objects.create_user(
+            username="pricing@example.com",
+            email="pricing@example.com",
+            password="StrongPass123!",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertContains(
+            response,
+            f'href="{reverse("journeys:home")}" data-plan-action="open-finy"',
+            html=False,
+        )
+        self.assertContains(response, "Open Finy")
+        self.assertNotContains(
+            response,
+            f'href="{reverse("ui:register")}" data-plan-action="get-started"',
+            html=False,
+        )
+
+    def test_basic_displays_model_price_features_and_disabled_payment_cta(self):
+        basic = Plan.objects.get(slug="basic")
+        self.assertEqual(basic.monthly_price, 89)
+
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertContains(response, "R89")
+        self.assertContains(response, "per month")
+        self.assertContains(response, "25 user-created folders")
+        self.assertContains(response, "15 user-created spaces")
+        self.assertContains(response, "Email capture when launched")
+        self.assertContains(response, "Payments Coming Soon")
+        self.assertContains(
+            response,
+            'data-plan-action="payments-coming-soon"',
+            html=False,
+        )
+
+    def test_pro_is_coming_soon_without_purchase_action(self):
+        pro = Plan.objects.get(slug="pro")
+        self.assertEqual(pro.monthly_price, 120)
+        self.assertFalse(pro.is_available)
+
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertContains(response, "R120")
+        self.assertContains(response, "Coming Soon")
+        self.assertContains(response, 'data-plan-action="coming-soon"', html=False)
+        self.assertNotContains(response, "Purchase Pro")
+        self.assertNotContains(response, "Upgrade")
+
+    def test_pricing_page_introduces_no_payment_endpoint_or_checkout_form(self):
+        response = self.client.get(reverse("ui:pricing"))
+
+        self.assertNotContains(response, "payfast", status_code=200)
+        self.assertNotContains(response, "checkout", status_code=200)
+        self.assertNotContains(response, "<form", status_code=200)
+        self.assertEqual(self.client.post("/payfast/").status_code, 404)

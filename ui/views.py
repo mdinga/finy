@@ -10,11 +10,24 @@ from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from core.signals import ensure_default_user_items
 from journeys.services import get_highest_ranking_user_achievement
+from subscriptions.models import Plan
 
 
 
 class HomeView(TemplateView):
     template_name = "ui/home.html"
+
+
+class PricingView(TemplateView):
+    template_name = "ui/pricing.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["plans"] = Plan.objects.filter(is_active=True).order_by(
+            "display_order",
+            "name",
+        )
+        return context
 
 @method_decorator(ratelimit(key="ip", rate="5/h", block=True), name="post")
 class AboutContactView(TemplateView):
