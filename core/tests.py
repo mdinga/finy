@@ -40,7 +40,7 @@ class DefaultUserItemsTests(TestCase):
 
         waiting_for = Space.objects.filter(
             user=user,
-            name="waiting_for",
+            is_system=True,
             category=other_category
         ).first()
 

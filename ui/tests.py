@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from core.models import Folder, Space, SpaceCategory
 from ui.models import SignupCoupon, SignupCouponRedemption
+from subscriptions.models import Subscription
 
 User = get_user_model()
 
@@ -37,6 +38,11 @@ class RegistrationFlowTests(TestCase):
                 coupon=coupon,
             ).exists()
         )
+
+        subscription = Subscription.objects.select_related("plan").get(user=user)
+        self.assertEqual(subscription.plan.slug, "free")
+        self.assertEqual(subscription.status, Subscription.Status.FREE)
+        self.assertEqual(subscription.provider, "")
 
         self.assertTrue(
             Folder.objects.filter(

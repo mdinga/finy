@@ -14,7 +14,8 @@ class SpaceCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Space)
 class SpaceAdmin(admin.ModelAdmin):
-    list_display = ("id", "user", "name", "category")
+    list_display = ("id", "user", "name", "category", "is_system")
+    list_filter = ("is_system",)
     search_fields = ("name",)
 
 @admin.register(Task)

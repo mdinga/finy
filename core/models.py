@@ -57,6 +57,7 @@ class Space(TimeStampedModel):
     name = models.CharField(max_length=50)
     category = models.ForeignKey(SpaceCategory, on_delete=models.PROTECT, related_name='spaces')
     is_pinned = models.BooleanField(default=False)
+    is_system = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'name', 'category')

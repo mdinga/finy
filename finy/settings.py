@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'api',
     'ui',
     'journeys',
+    'subscriptions',
 ]
 
 if DEBUG:

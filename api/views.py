@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from calendar import monthrange
+from django.db import transaction
 from django.db.models import Sum
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
@@ -29,6 +31,9 @@ from journeys.services import (
 )
 
 from .filters import TaskFilter
+from subscriptions.services import can_create_folder, can_create_space
+
+User = get_user_model()
 
 class IsOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
@@ -67,9 +72,13 @@ class FolderViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
     def perform_create(self, serializer):
-        folder = serializer.save(user=self.request.user)
-        update_folder_journey_progress(self.request.user)
-        return folder
+        with transaction.atomic():
+            User.objects.select_for_update().get(pk=self.request.user.pk)
+            if not can_create_folder(self.request.user):
+                raise ValidationError({"detail": "Your plan's folder limit has been reached."})
+            folder = serializer.save(user=self.request.user)
+            update_folder_journey_progress(self.request.user)
+            return folder
 
     def perform_update(self, serializer):
         folder = serializer.save()
@@ -93,9 +102,13 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'category__name']
 
     def perform_create(self, serializer):
-        space = serializer.save(user=self.request.user)
-        update_space_journey_progress(self.request.user)
-        return space
+        with transaction.atomic():
+            User.objects.select_for_update().get(pk=self.request.user.pk)
+            if not can_create_space(self.request.user):
+                raise ValidationError({"detail": "Your plan's space limit has been reached."})
+            space = serializer.save(user=self.request.user)
+            update_space_journey_progress(self.request.user)
+            return space
 
     def perform_update(self, serializer):
         space = serializer.save()
@@ -105,8 +118,8 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
 
-        if instance.name.lower() == "waiting_for":
-            raise ValidationError("Cannot delete waiting_for.")
+        if instance.is_system:
+            raise ValidationError("Cannot delete a protected system space.")
 
         return super().destroy(request, *args, **kwargs)
 

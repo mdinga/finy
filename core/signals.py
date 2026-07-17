@@ -21,7 +21,8 @@ def ensure_default_user_items(user):
     Space.objects.get_or_create(
         user=user,
         name="waiting_for",
-        category=other_category
+        category=other_category,
+        defaults={"is_system": True},
     )
 
 

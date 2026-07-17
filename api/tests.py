@@ -242,7 +242,7 @@ class SpecialSystemItemAPITests(APITestCase):
         self.assertTrue(Folder.objects.filter(pk=inbox.pk).exists())
 
     def test_user_cannot_delete_waiting_for_space(self):
-        waiting_for = Space.objects.get(user=self.user, name="waiting_for")
+        waiting_for = Space.objects.get(user=self.user, is_system=True)
         response = self.client.delete(reverse("api:space-detail", kwargs={"pk": waiting_for.pk}))
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

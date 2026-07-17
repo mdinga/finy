@@ -64,7 +64,8 @@ class SpaceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Space
-        fields = ['id', 'name', 'category', 'is_pinned']
+        fields = ['id', 'name', 'category', 'is_pinned', 'is_system']
+        read_only_fields = ['is_system']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
