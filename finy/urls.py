@@ -25,6 +25,10 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include(("ui.urls", "ui"), namespace="ui")),
     path("api/", include(("api.urls", "api"), namespace="api")),
+    path(
+        "subscriptions/",
+        include(("subscriptions.urls", "subscriptions"), namespace="subscriptions"),
+    ),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("home/", include(("journeys.urls", "journeys"), namespace="journeys")),

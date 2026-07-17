@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Continue to PayFast | Finy</title></head>
+<body>
+  <main>
+    <h1>Continue to PayFast sandbox</h1>
+    <p>You are subscribing to Finy Basic for R{{ attempt.amount|floatformat:2 }} per month.</p>
+    <form method="post" action="{{ process_url }}">
+      {% for name, value in fields.items %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+      <button type="submit">Continue securely</button>
+    </form>
+  </main>
+</body>
+</html>

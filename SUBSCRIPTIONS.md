@@ -1,7 +1,7 @@
 # Subscription foundation
 
-Finy keeps membership plans and feature entitlements in the `subscriptions` app. This
-foundation does not perform payment checkout or process PayFast ITN notifications.
+Finy keeps membership plans and feature entitlements in the `subscriptions` app. The
+first recurring-payment stage supports sandbox-only PayFast checkout for Basic.
 
 ## Plans
 
@@ -33,13 +33,30 @@ All plan policy is exposed through `subscriptions/services.py`. Call
 `can_create_space` instead of comparing plan slugs elsewhere. Folder and space API
 creation locks the user row and checks the service inside a database transaction.
 
-## Future PayFast integration
+## PayFast sandbox Stage 1
 
-After a successful recurring Basic checkout, the PayFast integration can update the
-existing `Subscription` with the Basic plan, paid status, billing period, provider
-`payfast`, subscription token, and payment ID. Future verified ITN processing can
-update those lifecycle fields. Pro remains unavailable for purchase. Provider secrets
-must remain in environment variables and must never be stored in source control.
+Authenticated users can initiate recurring Basic checkout in the PayFast sandbox.
+Return and cancel pages are informational and ownership-protected; they never change a
+subscription. Basic activates only after the ITN signature, source, merchant, amount,
+and PayFast server validation all succeed. Attempts, sanitized notifications, and
+transactions provide an idempotent audit trail. Pro remains unavailable for purchase.
+Provider secrets remain in environment variables and are never stored in source control.
+
+Required manual environment configuration:
+
+```text
+PAYFAST_ENABLED=True
+PAYFAST_ENVIRONMENT=sandbox
+PAYFAST_MERCHANT_ID=<sandbox merchant id>
+PAYFAST_MERCHANT_KEY=<sandbox merchant key>
+PAYFAST_PASSPHRASE=<sandbox passphrase>
+FINY_PUBLIC_BASE_URL=<public HTTPS development URL>
+PAYFAST_HTTP_TIMEOUT_SECONDS=10
+PAYFAST_TRUSTED_PROXIES=<optional comma-separated proxy IPs>
+```
+
+Renewal failure/grace handling, self-service cancellation, refunds, plan switching,
+Pro checkout, live mode, and production configuration are deliberately excluded.
 
 ## Tests
 

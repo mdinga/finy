@@ -208,7 +208,7 @@ class PricingPageTests(TestCase):
             html=False,
         )
 
-    def test_basic_displays_model_price_features_and_disabled_payment_cta(self):
+    def test_basic_displays_model_price_features_and_login_cta(self):
         basic = Plan.objects.get(slug="basic")
         self.assertEqual(basic.monthly_price, 89)
 
@@ -219,10 +219,10 @@ class PricingPageTests(TestCase):
         self.assertContains(response, "25 user-created folders")
         self.assertContains(response, "15 user-created spaces")
         self.assertContains(response, "Email capture when launched")
-        self.assertContains(response, "Payments Coming Soon")
+        self.assertContains(response, "Log in to subscribe")
         self.assertContains(
             response,
-            'data-plan-action="payments-coming-soon"',
+            'data-plan-action="login-for-basic"',
             html=False,
         )
 
@@ -239,10 +239,9 @@ class PricingPageTests(TestCase):
         self.assertNotContains(response, "Purchase Pro")
         self.assertNotContains(response, "Upgrade")
 
-    def test_pricing_page_introduces_no_payment_endpoint_or_checkout_form(self):
+    def test_pro_still_introduces_no_purchase_form(self):
         response = self.client.get(reverse("ui:pricing"))
 
         self.assertNotContains(response, "payfast", status_code=200)
-        self.assertNotContains(response, "checkout", status_code=200)
         self.assertNotContains(response, "<form", status_code=200)
         self.assertEqual(self.client.post("/payfast/").status_code, 404)

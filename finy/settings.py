@@ -195,6 +195,21 @@ TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# PayFast Stage 1 is deliberately sandbox-only. Secrets must be supplied through
+# environment variables and are never stored in the database.
+PAYFAST_ENABLED = config("PAYFAST_ENABLED", default=False, cast=bool)
+PAYFAST_ENVIRONMENT = config("PAYFAST_ENVIRONMENT", default="sandbox")
+PAYFAST_MERCHANT_ID = config("PAYFAST_MERCHANT_ID", default="")
+PAYFAST_MERCHANT_KEY = config("PAYFAST_MERCHANT_KEY", default="")
+PAYFAST_PASSPHRASE = config("PAYFAST_PASSPHRASE", default="")
+FINY_PUBLIC_BASE_URL = config("FINY_PUBLIC_BASE_URL", default="http://localhost:8000")
+PAYFAST_HTTP_TIMEOUT_SECONDS = config("PAYFAST_HTTP_TIMEOUT_SECONDS", default=10, cast=int)
+PAYFAST_TRUSTED_PROXIES = config("PAYFAST_TRUSTED_PROXIES", default="")
+PAYFAST_SOURCE_HOSTS = config(
+    "PAYFAST_SOURCE_HOSTS",
+    default="sandbox.payfast.co.za,www.payfast.co.za,w1w.payfast.co.za,w2w.payfast.co.za",
+)
+
 
 # DRF (basic)
 REST_FRAMEWORK = {

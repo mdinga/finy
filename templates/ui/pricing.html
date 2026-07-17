@@ -89,7 +89,14 @@
                     <a class="landing-btn landing-btn-primary" href="{% url 'ui:register' %}" data-plan-action="get-started">Get Started</a>
                   {% endif %}
                 {% elif plan.is_available %}
-                  <span class="landing-btn pricing-btn-disabled" aria-disabled="true" data-plan-action="payments-coming-soon">Payments Coming Soon</span>
+                  {% if user.is_authenticated %}
+                    <form method="post" action="{% url 'subscriptions:basic_checkout' %}">
+                      {% csrf_token %}
+                      <button class="landing-btn landing-btn-primary" type="submit" data-plan-action="subscribe-basic">Subscribe to Basic</button>
+                    </form>
+                  {% else %}
+                    <a class="landing-btn landing-btn-primary" href="{% url 'ui:login' %}" data-plan-action="login-for-basic">Log in to subscribe</a>
+                  {% endif %}
                 {% else %}
                   <span class="landing-btn pricing-btn-disabled" aria-disabled="true" data-plan-action="coming-soon">Coming Soon</span>
                 {% endif %}
