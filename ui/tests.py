@@ -5,8 +5,9 @@ from django.urls import reverse
 from datetime import timedelta
 
 from core.models import Folder, Space, SpaceCategory
+from ui.forms import RegistrationForm
 from ui.models import SignupCoupon, SignupCouponRedemption
-from subscriptions.models import Subscription
+from subscriptions.models import PaymentAttempt, Subscription
 from subscriptions.models import Plan
 
 User = get_user_model()
@@ -44,6 +45,7 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(subscription.plan.slug, "free")
         self.assertEqual(subscription.status, Subscription.Status.FREE)
         self.assertEqual(subscription.provider, "")
+        self.assertFalse(PaymentAttempt.objects.exists())
 
         self.assertTrue(
             Folder.objects.filter(
@@ -67,7 +69,44 @@ class RegistrationFlowTests(TestCase):
         )
 
 
-    def test_registration_requires_valid_coupon(self):
+    def test_registration_without_coupon_creates_free_user(self):
+        response = self.client.post(reverse("ui:register"), {
+            "first_name": "No Coupon",
+            "email": "no-coupon@example.com",
+            "password1": "StrongPass123!",
+            "password2": "StrongPass123!",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(email="no-coupon@example.com")
+        subscription = Subscription.objects.select_related("plan").get(user=user)
+        self.assertEqual(subscription.plan.slug, "free")
+        self.assertEqual(subscription.status, Subscription.Status.FREE)
+        self.assertFalse(SignupCouponRedemption.objects.filter(user=user).exists())
+        self.assertFalse(PaymentAttempt.objects.exists())
+
+    def test_blank_and_whitespace_only_coupons_create_free_users(self):
+        for index, coupon_code in enumerate(("", "   \t")):
+            with self.subTest(coupon_code=repr(coupon_code)):
+                email = f"blank-coupon-{index}@example.com"
+                response = self.client.post(reverse("ui:register"), {
+                    "first_name": "Blank Coupon",
+                    "email": email,
+                    "coupon_code": coupon_code,
+                    "password1": "StrongPass123!",
+                    "password2": "StrongPass123!",
+                })
+
+                self.assertEqual(response.status_code, 302)
+                user = User.objects.get(email=email)
+                subscription = Subscription.objects.select_related("plan").get(user=user)
+                self.assertEqual(subscription.plan.slug, "free")
+                self.assertEqual(subscription.status, Subscription.Status.FREE)
+                self.assertFalse(SignupCouponRedemption.objects.filter(user=user).exists())
+                self.assertFalse(PaymentAttempt.objects.exists())
+                self.client.logout()
+
+    def test_invalid_nonblank_coupon_is_rejected(self):
         url = reverse("ui:register")
 
         response = self.client.post(url, {
@@ -81,6 +120,39 @@ class RegistrationFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(email="mbasa@example.com").exists())
         self.assertContains(response, "Enter a valid coupon code.")
+        self.assertFalse(PaymentAttempt.objects.exists())
+
+    def test_existing_basic_user_is_unchanged_by_coupon_free_registration(self):
+        existing_user = User.objects.create_user(
+            username="existing-basic@example.com",
+            email="existing-basic@example.com",
+            password="StrongPass123!",
+        )
+        existing_subscription = existing_user.subscription
+        existing_subscription.plan = Plan.objects.get(slug="basic")
+        existing_subscription.status = Subscription.Status.ACTIVE
+        existing_subscription.save(update_fields=["plan", "status", "updated_at"])
+
+        response = self.client.post(reverse("ui:register"), {
+            "first_name": "New Free",
+            "email": "new-free@example.com",
+            "password1": "StrongPass123!",
+            "password2": "StrongPass123!",
+        })
+
+        self.assertEqual(response.status_code, 302)
+        existing_subscription.refresh_from_db()
+        new_subscription = Subscription.objects.select_related("plan").get(
+            user__email="new-free@example.com"
+        )
+        self.assertEqual(existing_subscription.plan.slug, "basic")
+        self.assertEqual(existing_subscription.status, Subscription.Status.ACTIVE)
+        self.assertEqual(new_subscription.plan.slug, "free")
+        self.assertEqual(new_subscription.status, Subscription.Status.FREE)
+        self.assertFalse(PaymentAttempt.objects.exists())
+
+    def test_coupon_code_field_is_optional(self):
+        self.assertFalse(RegistrationForm().fields["coupon_code"].required)
 
     def test_single_use_coupon_cannot_be_reused(self):
         coupon = self.create_coupon()

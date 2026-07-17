@@ -9,8 +9,9 @@ User = get_user_model()
 class RegistrationForm(forms.ModelForm):
     coupon_code = forms.CharField(
         label="Coupon code",
+        required=False,
         widget=forms.TextInput(attrs={
-            "placeholder": "Enter your invite code",
+            "placeholder": "Enter a coupon code (optional)",
             "autocomplete": "off",
         })
     )
@@ -51,6 +52,10 @@ class RegistrationForm(forms.ModelForm):
 
     def clean_coupon_code(self):
         code = (self.cleaned_data.get("coupon_code") or "").strip().upper()
+
+        if not code:
+            self.coupon = None
+            return ""
 
         try:
             coupon = SignupCoupon.objects.get(code__iexact=code)

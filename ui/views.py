@@ -122,7 +122,8 @@ def register_view(request):
         form = RegistrationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            form.coupon.redeem(user)
+            if form.coupon is not None:
+                form.coupon.redeem(user)
             try:
                 send_mail(
                     subject="New Finy User Registration",
