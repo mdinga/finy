@@ -22,9 +22,9 @@ period. Paid lifecycle statuses are `active`, `past_due`, `cancelled`, and `expi
 ## Existing and new users
 
 Migration `0002_seed_plans_and_memberships` creates or updates the three plan records
-and assigns Free membership to existing users without membership data. It does not
-overwrite an existing membership. A user creation signal assigns Free membership to
-new users, including users created by registration, admin, or `create_user()`.
+and assigns active Basic membership to existing users without membership data. It does
+not overwrite an existing membership. A user creation signal assigns Free membership
+to new users, including users created by registration, admin, or `create_user()`.
 
 ## Entitlements and limits
 

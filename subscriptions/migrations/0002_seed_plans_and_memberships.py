@@ -62,7 +62,7 @@ def seed_plans_and_memberships(apps, schema_editor):
     for user_id in User.objects.values_list("pk", flat=True).iterator():
         Subscription.objects.get_or_create(
             user_id=user_id,
-            defaults={"plan": plans["free"], "status": "free"},
+            defaults={"plan": plans["basic"], "status": "active"},
         )
 
 

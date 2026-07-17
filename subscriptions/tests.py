@@ -265,10 +265,11 @@ class ExistingUserMigrationTests(TransactionTestCase):
         self.assertFalse(pro.is_available)
         self.assertTrue(pro.unlimited_folders)
         self.assertTrue(pro.unlimited_spaces)
-        self.assertEqual(
-            MigratedSubscription.objects.get(user_id=self.unassigned_user.pk).plan_id,
-            free.pk,
+        migrated_subscription = MigratedSubscription.objects.get(
+            user_id=self.unassigned_user.pk
         )
+        self.assertEqual(migrated_subscription.plan_id, basic.pk)
+        self.assertEqual(migrated_subscription.status, "active")
         self.assertEqual(
             MigratedSubscription.objects.get(user_id=self.assigned_user_id).plan.slug,
             "legacy",
