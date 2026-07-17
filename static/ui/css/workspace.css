@@ -148,11 +148,39 @@ body.workspace-page main.container-fluid {
 /* Sidebar */
 
 @media (min-width: 992px) {
+  body.workspace-page {
+    overflow: hidden;
+  }
+
+  .workspace-page main.container-fluid {
+    height: calc(100dvh - 170px);
+    overflow: hidden;
+  }
+
+  .workspace-page main.container-fluid > .row {
+    height: 100%;
+    align-items: stretch;
+  }
+
   .workspace-page aside {
-    position: sticky;
-    top: 100px;
+    position: static;
     align-self: flex-start;
-    height: fit-content;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .workspace-page .sidebar-card,
+  .workspace-page #workspaceMain {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .workspace-page #workspaceMain {
+    padding-bottom: 1rem;
   }
 }
 
@@ -162,6 +190,12 @@ body.workspace-page main.container-fluid {
   background: #000000;
   box-shadow: none;
   overflow: visible;
+}
+
+@media (min-width: 992px) {
+  .workspace-page .sidebar-card {
+    overflow-y: auto;
+  }
 }
 
 .workspace-page .sidebar-card .card-body {
