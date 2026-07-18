@@ -52,11 +52,17 @@ PAYFAST_MERCHANT_KEY=<sandbox merchant key>
 PAYFAST_PASSPHRASE=<sandbox passphrase>
 FINY_PUBLIC_BASE_URL=<public HTTPS development URL>
 PAYFAST_HTTP_TIMEOUT_SECONDS=10
+PAYFAST_API_VERSION=v1
 PAYFAST_TRUSTED_PROXIES=<optional comma-separated proxy IPs>
 ```
 
-Renewal failure/grace handling, self-service cancellation, refunds, plan switching,
-Pro checkout, live mode, and production configuration are deliberately excluded.
+Verified renewals extend the existing billing period. Overdue Basic subscriptions
+receive a three-day grace period before an automatic downgrade to Free. Sandbox
+PayFast subscriptions can be cancelled from Profile: future debits stop after a
+confirmed PayFast API response, while Basic access remains until the current period
+ends. Cancellation and downgrade never delete productivity data; Free creation limits
+apply to any later folders or spaces. Refunds, plan switching, Pro checkout, live mode,
+and production configuration remain deliberately excluded.
 
 ## Tests
 

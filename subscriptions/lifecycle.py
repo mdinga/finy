@@ -43,11 +43,26 @@ def process_subscription(subscription_id, *, now, free_plan):
             Subscription.Status.PAST_DUE,
         }:
             return "unchanged"
-        if subscription.cancel_at_period_end:
-            return "unchanged"
-
         if not _valid_period_date(subscription.current_period_end):
             raise ValueError("current_period_end is missing or is not timezone-aware")
+
+        if subscription.cancel_at_period_end:
+            if now <= subscription.current_period_end:
+                return "unchanged"
+            subscription.plan = free_plan
+            subscription.status = Subscription.Status.FREE
+            subscription.grace_period_end = None
+            subscription.cancel_at_period_end = False
+            subscription.save(
+                update_fields=[
+                    "plan",
+                    "status",
+                    "grace_period_end",
+                    "cancel_at_period_end",
+                    "updated_at",
+                ]
+            )
+            return "downgraded"
 
         if subscription.status == Subscription.Status.ACTIVE:
             if now <= subscription.current_period_end:

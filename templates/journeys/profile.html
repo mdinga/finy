@@ -23,6 +23,39 @@
     <section class="row justify-content-center">
       <div class="col-12 col-lg-8">
 
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+
+        {% if cancellation_available %}
+          <div class="card task-card mb-3">
+            <div class="card-body">
+              <div class="hint mb-2">Your Account</div>
+              <h1 class="h3 mb-3">Subscription</h1>
+              <dl class="row mb-3">
+                <dt class="col-sm-4">Current plan</dt>
+                <dd class="col-sm-8">
+                  <strong>{{ subscription.plan.name }}</strong>
+                  — R{{ subscription.plan.monthly_price|floatformat:"-2" }} per month
+                </dd>
+                <dt class="col-sm-4">Basic access until</dt>
+                <dd class="col-sm-8">{{ subscription.current_period_end|date:"d F Y" }}</dd>
+              </dl>
+              {% if subscription.cancel_at_period_end %}
+                <span class="btn btn-outline-secondary disabled" aria-disabled="true">
+                  Cancellation scheduled
+                </span>
+              {% else %}
+                <a class="btn btn-outline-danger" href="{% url 'subscriptions:subscription_cancel_confirmation' %}">
+                  Cancel subscription
+                </a>
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
+
         <div class="card task-card mb-3">
           <div class="card-body">
             <div class="hint mb-2">Your Progress</div>

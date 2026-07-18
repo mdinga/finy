@@ -214,11 +214,11 @@ class SubscriptionLifecycleTests(TestCase):
             other_original,
         )
 
-    def test_scheduled_cancellation_is_left_unchanged(self):
+    def test_scheduled_cancellation_before_period_end_keeps_basic(self):
         cancelled_at = self.now - timedelta(days=2)
         self.subscription.cancel_at_period_end = True
         self.subscription.cancelled_at = cancelled_at
-        self.subscription.current_period_end = self.now - timedelta(hours=1)
+        self.subscription.current_period_end = self.now + timedelta(hours=1)
         self.subscription.save()
 
         result = self.process()
@@ -229,6 +229,56 @@ class SubscriptionLifecycleTests(TestCase):
         self.assertTrue(self.subscription.cancel_at_period_end)
         self.assertEqual(self.subscription.cancelled_at, cancelled_at)
         self.assertEqual(result.unchanged, 1)
+
+    def test_scheduled_cancellation_after_period_end_downgrades_without_grace(self):
+        cancelled_at = self.now - timedelta(days=2)
+        self.create_user_items(folder_count=6, space_count=6)
+        inbox = Folder.objects.get(user=self.user, is_inbox=True)
+        Task.objects.create(user=self.user, folder=inbox, title="Keep after cancellation")
+        before = (
+            Folder.objects.filter(user=self.user).count(),
+            Space.objects.filter(user=self.user).count(),
+            Task.objects.filter(user=self.user).count(),
+        )
+        self.subscription.cancel_at_period_end = True
+        self.subscription.cancelled_at = cancelled_at
+        self.subscription.grace_period_end = self.now + timedelta(days=3)
+        self.subscription.current_period_end = self.now - timedelta(seconds=1)
+        self.subscription.save()
+
+        first = self.process()
+        second = self.process()
+
+        self.subscription.refresh_from_db()
+        self.assertEqual(self.subscription.plan.slug, "free")
+        self.assertEqual(self.subscription.status, Subscription.Status.FREE)
+        self.assertIsNone(self.subscription.grace_period_end)
+        self.assertFalse(self.subscription.cancel_at_period_end)
+        self.assertEqual(self.subscription.cancelled_at, cancelled_at)
+        self.assertEqual((first.downgraded, second.downgraded), (1, 0))
+        self.assertEqual(
+            (
+                Folder.objects.filter(user=self.user).count(),
+                Space.objects.filter(user=self.user).count(),
+                Task.objects.filter(user=self.user).count(),
+            ),
+            before,
+        )
+        self.user.refresh_from_db()
+        self.assertEqual(
+            self.client.post(
+                reverse("api:folder-list"),
+                {"name": "Blocked after cancellation"},
+            ).status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            self.client.post(
+                reverse("api:space-list"),
+                {"name": "blocked_after_cancel", "category": self.category.pk},
+            ).status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
 
     def test_missing_period_end_is_reported_without_mutation(self):
         self.set_period_end(None)

@@ -8,6 +8,8 @@ from journeys.services import (
     get_highest_ranking_user_achievement,
     mission_prerequisites_complete,
 )
+from subscriptions.cancellation import is_cancellation_eligible
+from subscriptions.services import get_user_subscription
 
 
 def required_journey_complete(user, journey):
@@ -260,6 +262,9 @@ class ProfileView(LoginRequiredMixin, TemplateView):
             .select_related("achievement")
             .first()
         )
+        subscription = get_user_subscription(user)
+        context["subscription"] = subscription
+        context["cancellation_available"] = is_cancellation_eligible(subscription)
 
         return context
 
