@@ -25,7 +25,7 @@ def basic_checkout(request):
     try:
         attempt, fields, process_url = create_checkout(request.user)
     except ImproperlyConfigured:
-        return HttpResponse("PayFast sandbox checkout is unavailable.", status=503)
+        return HttpResponse("PayFast checkout is unavailable.", status=503)
     return render(
         request,
         "subscriptions/payfast_redirect.html",

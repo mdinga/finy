@@ -1,5 +1,42 @@
 # Finy deployment
 
+## PayFast Live and HTTPS readiness
+
+Complete PostgreSQL cutover, validate the real Ubuntu systemd units, and take a
+fresh backup before Live. Keep credentials only in the protected service environment.
+
+```text
+PAYFAST_ENABLED=True
+PAYFAST_CHECKOUT_ENABLED=True
+PAYFAST_ITN_ENABLED=True
+PAYFAST_API_ENABLED=True
+PAYFAST_ENVIRONMENT=live
+PAYFAST_MERCHANT_ID=<live merchant id>
+PAYFAST_MERCHANT_KEY=<live merchant key>
+PAYFAST_PASSPHRASE=<live passphrase>
+PAYFAST_API_VERSION=v1
+PAYFAST_CALLBACK_BASE_URL=https://www.finy.co.za/
+PAYFAST_HTTP_TIMEOUT_SECONDS=10
+ALLOWED_HOSTS=finy.co.za,www.finy.co.za
+CSRF_TRUSTED_ORIGINS=https://finy.co.za,https://www.finy.co.za
+SESSION_COOKIE_SECURE=True
+CSRF_COOKIE_SECURE=True
+SECURE_SSL_REDIRECT=True
+SECURE_PROXY_SSL_HEADER_ENABLED=True
+SECURE_HSTS_SECONDS=31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+SECURE_HSTS_PRELOAD=True
+SECURE_CONTENT_TYPE_NOSNIFF=True
+SECURE_REFERRER_POLICY=same-origin
+X_FRAME_OPTIONS=DENY
+```
+
+Before switch-over, run the mocked suite plus `manage.py check` and
+`manage.py check --deploy` with non-secret production-like values. Confirm all
+callbacks through public HTTPS. For emergency rollback, keep master and ITN enabled
+but disable checkout and API operations, restart Gunicorn, and verify Billing and ITN
+health. This avoids discarding legitimate notifications already in flight.
+
 ## Database selection
 
 Local development uses SQLite unless `DATABASE_ENGINE` selects PostgreSQL.

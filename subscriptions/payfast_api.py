@@ -9,9 +9,10 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.utils import timezone
 
+from .configuration import validate_configuration
+
 
 logger = logging.getLogger(__name__)
-PAYFAST_API_BASE_URL = "https://api.payfast.co.za"
 MAX_RESPONSE_BYTES = 65536
 
 
@@ -32,19 +33,14 @@ def generate_api_signature(values, passphrase):
 
 
 def _api_configuration():
-    if not settings.PAYFAST_ENABLED:
-        raise ImproperlyConfigured("PayFast cancellation is not enabled.")
-    if settings.PAYFAST_ENVIRONMENT != "sandbox":
-        raise ImproperlyConfigured("PayFast cancellation supports sandbox only.")
-    if not settings.PAYFAST_MERCHANT_ID or not settings.PAYFAST_PASSPHRASE:
-        raise ImproperlyConfigured("PayFast cancellation is not configured.")
-    return getattr(settings, "PAYFAST_API_VERSION", "v1")
+    endpoints, _ = validate_configuration("API")
+    return endpoints, settings.PAYFAST_API_VERSION
 
 
 def cancel_subscription(provider_token):
     if not provider_token:
         raise PayFastAPIError("PayFast cancellation could not be confirmed.")
-    version = _api_configuration()
+    endpoints, version = _api_configuration()
     timestamp = timezone.now().isoformat(timespec="seconds")
     signature_values = {
         "merchant-id": settings.PAYFAST_MERCHANT_ID,
@@ -59,7 +55,9 @@ def cancel_subscription(provider_token):
         ),
     }
     encoded_token = quote(provider_token, safe="")
-    url = f"{PAYFAST_API_BASE_URL}/subscriptions/{encoded_token}/cancel?testing=true"
+    url = f"{endpoints.recurring_api}/subscriptions/{encoded_token}/cancel"
+    if endpoints.testing:
+        url += "?testing=true"
     request = Request(url, headers=headers, method="PUT")
 
     try:

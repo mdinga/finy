@@ -30,16 +30,31 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "finy.co.za", "www.finy.co.za", "41.61.20.230"]
+def csv_config(name, default=""):
+    return [value.strip() for value in config(name, default=default).split(",") if value.strip()]
+
+
+ALLOWED_HOSTS = csv_config("ALLOWED_HOSTS", "127.0.0.1,localhost")
+CSRF_TRUSTED_ORIGINS = csv_config("CSRF_TRUSTED_ORIGINS")
 
 
 if RENDER_EXTERNAL_HOSTNAME:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
-ALLOWED_HOSTS += [
-    "finy.co.za",
-    "www.finy.co.za",
-]
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
+SECURE_PROXY_SSL_HEADER = (
+    ("HTTP_X_FORWARDED_PROTO", "https")
+    if config("SECURE_PROXY_SSL_HEADER_ENABLED", default=False, cast=bool)
+    else None
+)
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = config("SECURE_CONTENT_TYPE_NOSNIFF", default=True, cast=bool)
+SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default="same-origin")
+X_FRAME_OPTIONS = config("X_FRAME_OPTIONS", default="DENY")
 
 
 # Application definition
@@ -230,14 +245,18 @@ TEMPLATES[0]["DIRS"] = [BASE_DIR / "templates"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# PayFast Stage 1 is deliberately sandbox-only. Secrets must be supplied through
-# environment variables and are never stored in the database.
 PAYFAST_ENABLED = config("PAYFAST_ENABLED", default=False, cast=bool)
-PAYFAST_ENVIRONMENT = config("PAYFAST_ENVIRONMENT", default="sandbox")
+PAYFAST_CHECKOUT_ENABLED = config("PAYFAST_CHECKOUT_ENABLED", default=PAYFAST_ENABLED, cast=bool)
+PAYFAST_ITN_ENABLED = config("PAYFAST_ITN_ENABLED", default=PAYFAST_ENABLED, cast=bool)
+PAYFAST_API_ENABLED = config("PAYFAST_API_ENABLED", default=PAYFAST_ENABLED, cast=bool)
+PAYFAST_ENVIRONMENT = config("PAYFAST_ENVIRONMENT", default="sandbox" if not PAYFAST_ENABLED else "")
 PAYFAST_MERCHANT_ID = config("PAYFAST_MERCHANT_ID", default="")
 PAYFAST_MERCHANT_KEY = config("PAYFAST_MERCHANT_KEY", default="")
 PAYFAST_PASSPHRASE = config("PAYFAST_PASSPHRASE", default="")
-FINY_PUBLIC_BASE_URL = config("FINY_PUBLIC_BASE_URL", default="http://localhost:8000")
+PAYFAST_CALLBACK_BASE_URL = config(
+    "PAYFAST_CALLBACK_BASE_URL",
+    default=config("FINY_PUBLIC_BASE_URL", default=""),
+)
 PAYFAST_HTTP_TIMEOUT_SECONDS = config("PAYFAST_HTTP_TIMEOUT_SECONDS", default=10, cast=int)
 PAYFAST_API_VERSION = config("PAYFAST_API_VERSION", default="v1")
 PAYFAST_TRUSTED_PROXIES = config("PAYFAST_TRUSTED_PROXIES", default="")

@@ -14,6 +14,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.urls import reverse
+
+from .configuration import validate_configuration
 
 from .models import (
     PaymentAttempt,
@@ -24,8 +27,6 @@ from .models import (
 )
 
 
-PAYFAST_PROCESS_URL = "https://sandbox.payfast.co.za/eng/process"
-PAYFAST_VALIDATE_URL = "https://sandbox.payfast.co.za/eng/query/validate"
 SAFE_NOTIFICATION_FIELDS = {
     "merchant_id",
     "m_payment_id",
@@ -53,22 +54,6 @@ def _csv_setting(name):
     return [value.strip() for value in getattr(settings, name, "").split(",") if value.strip()]
 
 
-def validate_configuration():
-    if not settings.PAYFAST_ENABLED:
-        raise ImproperlyConfigured("PayFast checkout is not enabled.")
-    if settings.PAYFAST_ENVIRONMENT != "sandbox":
-        raise ImproperlyConfigured("Stage 1 supports PayFast sandbox only.")
-    required = {
-        "PAYFAST_MERCHANT_ID": settings.PAYFAST_MERCHANT_ID,
-        "PAYFAST_MERCHANT_KEY": settings.PAYFAST_MERCHANT_KEY,
-        "PAYFAST_PASSPHRASE": settings.PAYFAST_PASSPHRASE,
-        "FINY_PUBLIC_BASE_URL": settings.FINY_PUBLIC_BASE_URL,
-    }
-    missing = [name for name, value in required.items() if not value]
-    if missing:
-        raise ImproperlyConfigured(f"Missing PayFast settings: {', '.join(missing)}")
-
-
 def generate_signature(data, passphrase):
     values = [(key, str(value)) for key, value in data.items() if value not in (None, "") and key != "signature"]
     if passphrase:
@@ -78,7 +63,7 @@ def generate_signature(data, passphrase):
 
 
 def create_checkout(user):
-    validate_configuration()
+    endpoints, base_url = validate_configuration("CHECKOUT")
     basic = Plan.objects.get(slug="basic", is_active=True, is_available=True)
     subscription = user.subscription
     attempt = PaymentAttempt.objects.create(
@@ -89,14 +74,13 @@ def create_checkout(user):
         amount=basic.monthly_price,
         currency=basic.currency,
     )
-    base_url = settings.FINY_PUBLIC_BASE_URL.rstrip("/") + "/"
     fields = OrderedDict(
         (
             ("merchant_id", settings.PAYFAST_MERCHANT_ID),
             ("merchant_key", settings.PAYFAST_MERCHANT_KEY),
-            ("return_url", urljoin(base_url, f"subscriptions/payfast/return/{attempt.pk}/")),
-            ("cancel_url", urljoin(base_url, f"subscriptions/payfast/cancel/{attempt.pk}/")),
-            ("notify_url", urljoin(base_url, "subscriptions/payfast/notify/")),
+            ("return_url", urljoin(base_url, reverse("subscriptions:payment_return", args=[attempt.pk]).lstrip("/"))),
+            ("cancel_url", urljoin(base_url, reverse("subscriptions:payment_cancel", args=[attempt.pk]).lstrip("/"))),
+            ("notify_url", urljoin(base_url, reverse("subscriptions:payfast_notify").lstrip("/"))),
             ("email_address", user.email or user.username),
             ("m_payment_id", attempt.merchant_payment_id),
             ("amount", f"{attempt.amount:.2f}"),
@@ -112,7 +96,7 @@ def create_checkout(user):
     fields["signature"] = generate_signature(fields, settings.PAYFAST_PASSPHRASE)
     attempt.status = PaymentAttempt.Status.SUBMITTED
     attempt.save(update_fields=["status", "updated_at"])
-    return attempt, fields, PAYFAST_PROCESS_URL
+    return attempt, fields, endpoints.checkout
 
 
 def sanitize_notification(data):
@@ -150,8 +134,9 @@ def validate_source(request):
 
 
 def validate_with_payfast(data):
+    endpoints, _ = validate_configuration("ITN")
     body = urlencode([(key, value) for key, value in data.items()]).encode("utf-8")
-    request = Request(PAYFAST_VALIDATE_URL, data=body, method="POST")
+    request = Request(endpoints.validate, data=body, method="POST")
     with urlopen(request, timeout=settings.PAYFAST_HTTP_TIMEOUT_SECONDS) as response:
         return response.read().decode("utf-8").strip() == "VALID"
 
@@ -188,7 +173,7 @@ def _renewal_period(subscription, now):
 
 
 def process_itn(request):
-    validate_configuration()
+    validate_configuration("ITN")
     data = request.POST
     sanitized = sanitize_notification(data)
     payload_hash = notification_hash(sanitized)

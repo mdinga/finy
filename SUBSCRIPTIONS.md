@@ -1,7 +1,7 @@
 # Subscription foundation
 
 Finy keeps membership plans and feature entitlements in the `subscriptions` app. The
-first recurring-payment stage supports sandbox-only PayFast checkout for Basic.
+recurring-payment integration supports explicitly selected PayFast Sandbox or Live checkout for Basic.
 
 ## Plans
 
@@ -33,7 +33,7 @@ All plan policy is exposed through `subscriptions/services.py`. Call
 `can_create_space` instead of comparing plan slugs elsewhere. Folder and space API
 creation locks the user row and checks the service inside a database transaction.
 
-## PayFast sandbox Stage 1
+## PayFast configuration
 
 Authenticated users can initiate recurring Basic checkout in the PayFast sandbox.
 Return and cancel pages are informational and ownership-protected; they never change a
@@ -46,15 +46,30 @@ Required manual environment configuration:
 
 ```text
 PAYFAST_ENABLED=True
+PAYFAST_CHECKOUT_ENABLED=True
+PAYFAST_ITN_ENABLED=True
+PAYFAST_API_ENABLED=True
 PAYFAST_ENVIRONMENT=sandbox
 PAYFAST_MERCHANT_ID=<sandbox merchant id>
 PAYFAST_MERCHANT_KEY=<sandbox merchant key>
 PAYFAST_PASSPHRASE=<sandbox passphrase>
-FINY_PUBLIC_BASE_URL=<public HTTPS development URL>
+PAYFAST_CALLBACK_BASE_URL=<public HTTPS callback base URL>
 PAYFAST_HTTP_TIMEOUT_SECONDS=10
 PAYFAST_API_VERSION=v1
 PAYFAST_TRUSTED_PROXIES=<optional comma-separated proxy IPs>
 ```
+
+`PAYFAST_ENVIRONMENT` accepts only `sandbox` or `live`. Sandbox uses its
+documented checkout and validation endpoints and adds `testing=true` to recurring
+API requests. Live uses the `www.payfast.co.za` endpoints and never sends
+`testing=true`. Both use `https://api.payfast.co.za` for recurring API operations.
+Live callbacks require HTTPS; Sandbox HTTP is allowed only for localhost with
+`DEBUG=True`. Callback paths come from named Django routes, not browser input.
+
+For an emergency checkout stop, keep `PAYFAST_ENABLED` and
+`PAYFAST_ITN_ENABLED` true while setting checkout and API switches false. Existing
+notifications continue to be verified while new checkout and cancellation calls stop.
+Secrets must remain outside Git.
 
 Verified renewals extend the existing billing period. Overdue Basic subscriptions
 receive a three-day grace period before an automatic downgrade to Free. Sandbox

@@ -14,8 +14,8 @@ Gunicorn unit and replace all of these example values:
 
 Do not install the timer until the PostgreSQL cutover is complete, a current
 database backup exists, and the lifecycle command has passed a manual production
-run. Live PayFast is not required and must remain disabled until its separate
-readiness stage is approved.
+run. Before Live PayFast, validate the actual Gunicorn and lifecycle units,
+complete PostgreSQL cutover, take a backup, and follow `DEPLOYMENT.md`.
 
 ## Lifecycle behavior
 

@@ -31,12 +31,16 @@ from .payfast_api import (
 User = get_user_model()
 PAYFAST_SETTINGS = {
     "PAYFAST_ENABLED": True,
+    "PAYFAST_CHECKOUT_ENABLED": True,
+    "PAYFAST_ITN_ENABLED": True,
+    "PAYFAST_API_ENABLED": True,
     "PAYFAST_ENVIRONMENT": "sandbox",
     "PAYFAST_MERCHANT_ID": "10000100",
     "PAYFAST_MERCHANT_KEY": "browser-only-key",
     "PAYFAST_PASSPHRASE": "private passphrase",
     "PAYFAST_API_VERSION": "v1",
     "PAYFAST_HTTP_TIMEOUT_SECONDS": 2,
+    "PAYFAST_CALLBACK_BASE_URL": "https://example.test",
 }
 
 
@@ -137,10 +141,12 @@ class PayFastCancellationAPITests(TestCase):
             with self.assertRaises(PayFastAPIError):
                 cancel_subscription("secret-token")
 
-    def test_live_mode_remains_disabled(self):
+    @patch("subscriptions.payfast_api.urlopen")
+    def test_live_mode_uses_live_url_without_testing(self, urlopen_mock):
+        urlopen_mock.return_value = FakeResponse({"status": "success", "data": {"response": True}})
         with override_settings(PAYFAST_ENVIRONMENT="live"):
-            with self.assertRaises(ImproperlyConfigured):
-                cancel_subscription("safe-token")
+            self.assertTrue(cancel_subscription("safe-token"))
+        self.assertEqual(urlopen_mock.call_args.args[0].full_url, "https://api.payfast.co.za/subscriptions/safe-token/cancel")
 
 
 @override_settings(**PAYFAST_SETTINGS)

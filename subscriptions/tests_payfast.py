@@ -15,12 +15,16 @@ from .payfast import generate_signature, get_request_source_ip, sanitize_notific
 User = get_user_model()
 PAYFAST_SETTINGS = {
     "PAYFAST_ENABLED": True,
+    "PAYFAST_CHECKOUT_ENABLED": True,
+    "PAYFAST_ITN_ENABLED": True,
+    "PAYFAST_API_ENABLED": True,
     "PAYFAST_ENVIRONMENT": "sandbox",
     "PAYFAST_MERCHANT_ID": "10000100",
     "PAYFAST_MERCHANT_KEY": "test-key",
     "PAYFAST_PASSPHRASE": "test-passphrase",
-    "FINY_PUBLIC_BASE_URL": "https://example.test",
+    "PAYFAST_CALLBACK_BASE_URL": "https://example.test",
     "PAYFAST_HTTP_TIMEOUT_SECONDS": 1,
+    "PAYFAST_API_VERSION": "v1",
     "PAYFAST_TRUSTED_PROXIES": "10.0.0.1",
     "PAYFAST_SOURCE_HOSTS": "sandbox.payfast.co.za",
 }
@@ -62,12 +66,13 @@ class PayFastCheckoutTests(TestCase):
         self.assertContains(response, 'name="cycles" value="0"', html=False)
         self.assertContains(response, 'name="signature"', html=False)
 
-    def test_stage_one_rejects_live_configuration(self):
+    def test_live_checkout_uses_live_endpoint(self):
         self.client.force_login(self.user)
         with override_settings(PAYFAST_ENVIRONMENT="live"):
             response = self.client.post(reverse("subscriptions:basic_checkout"))
-        self.assertEqual(response.status_code, 503)
-        self.assertFalse(PaymentAttempt.objects.exists())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "https://www.payfast.co.za/eng/process")
+        self.assertNotContains(response, "sandbox.payfast.co.za")
 
     def test_return_and_cancel_require_owner_and_do_not_mutate_state(self):
         other = User.objects.create_user(username="other@example.com", password="password")

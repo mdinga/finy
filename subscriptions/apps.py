@@ -6,4 +6,5 @@ class SubscriptionsConfig(AppConfig):
     name = "subscriptions"
 
     def ready(self):
+        from . import checks  # noqa: F401
         from . import signals  # noqa: F401
