@@ -170,6 +170,23 @@ def _next_month(value):
     return value.replace(year=year, month=month, day=day)
 
 
+def _renewal_period(subscription, now):
+    in_grace = (
+        subscription.status == Subscription.Status.PAST_DUE
+        and subscription.grace_period_end
+        and subscription.grace_period_end >= now
+    )
+    keeps_existing_boundary = subscription.status == Subscription.Status.ACTIVE or in_grace
+    if subscription.current_period_end and keeps_existing_boundary:
+        period_start = subscription.current_period_end
+    else:
+        period_start = now
+    period_end = _next_month(period_start)
+    if subscription.current_period_end and period_end < subscription.current_period_end:
+        period_end = subscription.current_period_end
+    return period_start, period_end
+
+
 def process_itn(request):
     validate_configuration()
     data = request.POST
@@ -255,6 +272,7 @@ def process_itn(request):
         return notification
 
     try:
+        token_error = ""
         with transaction.atomic():
             attempt = PaymentAttempt.objects.select_for_update().select_related("plan").get(pk=attempt.pk)
             subscription = Subscription.objects.select_for_update().get(pk=attempt.subscription_id)
@@ -263,37 +281,80 @@ def process_itn(request):
                 return notification
             now = timezone.now()
             paid_at = parse_datetime(data.get("payment_date", "")) or now
-            PaymentTransaction.objects.create(
+            incoming_token = data.get("token", "")[:255]
+            has_successful_payment = PaymentTransaction.objects.filter(
                 subscription=subscription,
-                attempt=attempt,
-                notification=notification,
-                provider_payment_id=data.get("pf_payment_id", ""),
-                merchant_payment_id=attempt.merchant_payment_id,
-                provider_subscription_token=data.get("token", "")[:255],
                 status=PaymentTransaction.Status.COMPLETE,
-                gross_amount=attempt.amount,
-                fee_amount=_parse_decimal(data, "amount_fee"),
-                net_amount=_parse_decimal(data, "amount_net"),
-                currency=attempt.currency,
-                paid_at=paid_at,
+            ).exists()
+            transaction_kind = (
+                PaymentTransaction.Kind.RENEWAL
+                if has_successful_payment
+                else PaymentTransaction.Kind.INITIAL
             )
-            subscription.plan = attempt.plan
-            subscription.status = Subscription.Status.ACTIVE
-            subscription.provider = Subscription.Provider.PAYFAST
-            subscription.provider_payment_id = data.get("pf_payment_id", "")[:255]
-            subscription.provider_subscription_token = data.get("token", "")[:255]
-            subscription.started_at = now
-            subscription.current_period_start = now
-            subscription.current_period_end = _next_month(now)
-            subscription.last_successful_payment_at = now
-            subscription.grace_period_end = None
-            subscription.cancel_at_period_end = False
-            subscription.cancelled_at = None
-            subscription.save()
-            attempt.status = PaymentAttempt.Status.COMPLETED
-            attempt.save(update_fields=["status", "updated_at"])
-            notification.processed_at = now
-            notification.save(update_fields=["processed_at"])
+            if transaction_kind == PaymentTransaction.Kind.INITIAL and not incoming_token:
+                token_error = "Missing PayFast subscription token."
+            elif transaction_kind == PaymentTransaction.Kind.RENEWAL and not incoming_token:
+                token_error = "Missing PayFast renewal token."
+            elif (
+                transaction_kind == PaymentTransaction.Kind.RENEWAL
+                and incoming_token != subscription.provider_subscription_token
+            ):
+                token_error = "Invalid PayFast renewal token."
+
+            if token_error:
+                notification.validation_error = token_error
+                notification.save(update_fields=["validation_error"])
+            else:
+                previous_started_at = subscription.started_at
+                previous_cancel_at_period_end = subscription.cancel_at_period_end
+                previous_cancelled_at = subscription.cancelled_at
+                if transaction_kind == PaymentTransaction.Kind.RENEWAL:
+                    period_start, period_end = _renewal_period(subscription, now)
+                else:
+                    period_start, period_end = now, _next_month(now)
+
+                PaymentTransaction.objects.create(
+                    subscription=subscription,
+                    attempt=attempt,
+                    notification=notification,
+                    provider_payment_id=data.get("pf_payment_id", ""),
+                    merchant_payment_id=attempt.merchant_payment_id,
+                    provider_subscription_token=incoming_token,
+                    kind=transaction_kind,
+                    status=PaymentTransaction.Status.COMPLETE,
+                    gross_amount=attempt.amount,
+                    fee_amount=_parse_decimal(data, "amount_fee"),
+                    net_amount=_parse_decimal(data, "amount_net"),
+                    currency=attempt.currency,
+                    paid_at=paid_at,
+                )
+                subscription.plan = attempt.plan
+                subscription.status = Subscription.Status.ACTIVE
+                subscription.provider = Subscription.Provider.PAYFAST
+                subscription.provider_payment_id = data.get("pf_payment_id", "")[:255]
+                subscription.provider_subscription_token = incoming_token
+                subscription.started_at = (
+                    previous_started_at
+                    if transaction_kind == PaymentTransaction.Kind.RENEWAL
+                    else now
+                )
+                subscription.current_period_start = period_start
+                subscription.current_period_end = period_end
+                subscription.last_successful_payment_at = now
+                subscription.grace_period_end = None
+                if transaction_kind == PaymentTransaction.Kind.RENEWAL:
+                    subscription.cancel_at_period_end = previous_cancel_at_period_end
+                    subscription.cancelled_at = previous_cancelled_at
+                else:
+                    subscription.cancel_at_period_end = False
+                    subscription.cancelled_at = None
+                subscription.save()
+                attempt.status = PaymentAttempt.Status.COMPLETED
+                attempt.save(update_fields=["status", "updated_at"])
+                notification.processed_at = now
+                notification.save(update_fields=["processed_at"])
+        if token_error:
+            raise ValueError(token_error)
     except IntegrityError:
         if not PaymentTransaction.objects.filter(
             provider_payment_id=data.get("pf_payment_id", "")
