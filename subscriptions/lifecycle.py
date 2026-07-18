@@ -1,7 +1,9 @@
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from time import monotonic
 
+from django.conf import settings
 from django.db import DatabaseError, transaction
 from django.utils import timezone
 
@@ -13,11 +15,37 @@ GRACE_PERIOD = timedelta(days=3)
 
 
 @dataclass
+class LifecycleError:
+    subscription_id: int
+    error_class: str
+    detail: str
+
+
+@dataclass
 class LifecycleResult:
     unchanged: int = 0
     past_due: int = 0
     downgraded: int = 0
-    errors: list[str] = field(default_factory=list)
+    errors: list[LifecycleError] = field(default_factory=list)
+    duration_seconds: float = 0.0
+
+    @property
+    def checked(self):
+        return self.unchanged + self.past_due + self.downgraded + len(self.errors)
+
+    @property
+    def transitioned(self):
+        return self.past_due + self.downgraded
+
+
+def _environment_name():
+    return getattr(settings, "PAYFAST_ENVIRONMENT", "unknown")
+
+
+def _safe_error_detail(exc):
+    if isinstance(exc, ValueError):
+        return str(exc)
+    return "database operation failed"
 
 
 def _valid_period_date(value):
@@ -91,6 +119,12 @@ def process_subscription(subscription_id, *, now, free_plan):
 
 
 def process_subscription_lifecycle(*, now=None):
+    started = monotonic()
+    environment = _environment_name()
+    logger.info(
+        "subscription.lifecycle.started environment=%s",
+        environment,
+    )
     now = now or timezone.now()
     if not _valid_period_date(now):
         raise ValueError("Lifecycle processing requires a timezone-aware datetime.")
@@ -114,9 +148,33 @@ def process_subscription_lifecycle(*, now=None):
                 free_plan=free_plan,
             )
         except (DatabaseError, ValueError) as exc:
-            message = f"Subscription {subscription_id}: {exc}"
-            logger.warning("Subscription lifecycle skipped: %s", message)
-            result.errors.append(message)
+            error = LifecycleError(
+                subscription_id=subscription_id,
+                error_class=exc.__class__.__name__,
+                detail=_safe_error_detail(exc),
+            )
+            logger.warning(
+                "subscription.lifecycle.subscription_failed "
+                "environment=%s subscription_id=%s error_class=%s",
+                environment,
+                error.subscription_id,
+                error.error_class,
+            )
+            result.errors.append(error)
             continue
         setattr(result, outcome, getattr(result, outcome) + 1)
+    result.duration_seconds = monotonic() - started
+    logger.info(
+        "subscription.lifecycle.completed environment=%s checked=%s "
+        "transitioned=%s past_due=%s downgraded=%s unchanged=%s errors=%s "
+        "duration_seconds=%.3f",
+        environment,
+        result.checked,
+        result.transitioned,
+        result.past_due,
+        result.downgraded,
+        result.unchanged,
+        len(result.errors),
+        result.duration_seconds,
+    )
     return result

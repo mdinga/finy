@@ -1,0 +1,24 @@
+# Replace every /srv/finy path, the service account, environment file, and lock
+# location with values verified on the production server before installation.
+[Unit]
+Description=Finy subscription lifecycle processing
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/srv/finy/app/manage.py
+
+[Service]
+Type=oneshot
+User=finy
+Group=finy
+WorkingDirectory=/srv/finy/app
+EnvironmentFile=/etc/finy/finy.env
+RuntimeDirectory=finy
+RuntimeDirectoryMode=0750
+ExecStart=/bin/sh -c 'exec 9>/run/finy/subscription-lifecycle.lock; if ! /usr/bin/flock --nonblock 9; then echo "subscription.lifecycle.lock_skipped environment=production"; exit 0; fi; exec /srv/finy/venv/bin/python manage.py process_subscription_lifecycle'
+TimeoutStartSec=10min
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=finy-subscription-lifecycle
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0027

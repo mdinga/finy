@@ -3,6 +3,7 @@ from io import StringIO
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -285,13 +286,121 @@ class SubscriptionLifecycleTests(TestCase):
         stderr = StringIO()
         stdout = StringIO()
 
-        call_command("process_subscription_lifecycle", stdout=stdout, stderr=stderr)
+        with self.assertRaises(CommandError):
+            call_command("process_subscription_lifecycle", stdout=stdout, stderr=stderr)
 
         self.subscription.refresh_from_db()
         self.assertEqual(self.subscription.status, Subscription.Status.ACTIVE)
         self.assertEqual(self.subscription.plan.slug, "basic")
         self.assertIn("current_period_end is missing", stderr.getvalue())
+        self.assertIn(f"subscription_id={self.subscription.pk}", stderr.getvalue())
+        self.assertIn("checked=1", stdout.getvalue())
+        self.assertIn("transitioned=0", stdout.getvalue())
         self.assertIn("errors=1", stdout.getvalue())
+        self.assertIn("duration_seconds=", stdout.getvalue())
+
+    def test_successful_command_has_safe_complete_summary(self):
+        stdout = StringIO()
+        stderr = StringIO()
+
+        call_command("process_subscription_lifecycle", stdout=stdout, stderr=stderr)
+
+        output = stdout.getvalue()
+        self.assertIn("checked=1", output)
+        self.assertIn("transitioned=0", output)
+        self.assertIn("past_due=0", output)
+        self.assertIn("downgraded=0", output)
+        self.assertIn("unchanged=1", output)
+        self.assertIn("errors=0", output)
+        self.assertIn("duration_seconds=", output)
+        self.assertEqual(stderr.getvalue(), "")
+
+    def test_processing_continues_after_malformed_subscription(self):
+        self.set_period_end(None)
+        other = User.objects.create_user(
+            username="lifecycle-valid-after-error@example.com",
+            password="password",
+        )
+        other_subscription = other.subscription
+        other_subscription.plan = Plan.objects.get(slug="basic")
+        other_subscription.status = Subscription.Status.ACTIVE
+        other_subscription.current_period_end = self.now - timedelta(hours=1)
+        other_subscription.save()
+
+        result = self.process()
+
+        other_subscription.refresh_from_db()
+        self.assertEqual(other_subscription.status, Subscription.Status.PAST_DUE)
+        self.assertEqual(result.checked, 2)
+        self.assertEqual(result.transitioned, 1)
+        self.assertEqual(result.past_due, 1)
+        self.assertEqual(len(result.errors), 1)
+        self.assertEqual(result.errors[0].subscription_id, self.subscription.pk)
+        self.assertEqual(result.errors[0].error_class, "ValueError")
+
+    def test_command_output_and_logs_do_not_expose_sensitive_values(self):
+        sensitive_values = (
+            "private-user@example.com",
+            "provider-subscription-secret",
+            "merchant-secret",
+            "signature-secret",
+            "https://provider.invalid/private",
+        )
+        self.user.email = sensitive_values[0]
+        self.user.save(update_fields=["email"])
+        self.subscription.provider_subscription_token = sensitive_values[1]
+        self.subscription.provider_payment_id = sensitive_values[2]
+        self.subscription.current_period_end = None
+        self.subscription.save()
+        stdout = StringIO()
+        stderr = StringIO()
+
+        with self.assertLogs("subscriptions.lifecycle", level="INFO") as captured:
+            with self.assertRaises(CommandError):
+                call_command(
+                    "process_subscription_lifecycle",
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+
+        combined = stdout.getvalue() + stderr.getvalue() + " ".join(captured.output)
+        self.assertIn("subscription.lifecycle.started", combined)
+        self.assertIn("subscription.lifecycle.subscription_failed", combined)
+        self.assertIn("subscription.lifecycle.completed", combined)
+        self.assertIn(f"subscription_id={self.subscription.pk}", combined)
+        for sensitive in sensitive_values:
+            self.assertNotIn(sensitive, combined)
+
+    def test_lifecycle_result_aggregation_counts_all_outcomes(self):
+        self.set_period_end(self.now - timedelta(hours=1))
+        unchanged_user = User.objects.create_user(
+            username="lifecycle-unchanged@example.com",
+            password="password",
+        )
+        unchanged = unchanged_user.subscription
+        unchanged.plan = Plan.objects.get(slug="basic")
+        unchanged.status = Subscription.Status.ACTIVE
+        unchanged.current_period_end = self.now + timedelta(days=2)
+        unchanged.save()
+        malformed_user = User.objects.create_user(
+            username="lifecycle-malformed@example.com",
+            password="password",
+        )
+        malformed = malformed_user.subscription
+        malformed.plan = Plan.objects.get(slug="basic")
+        malformed.status = Subscription.Status.ACTIVE
+        malformed.current_period_end = None
+        malformed.save()
+
+        result = self.process()
+
+        self.assertEqual(result.checked, 3)
+        self.assertEqual(result.transitioned, 1)
+        self.assertEqual(result.past_due, 1)
+        self.assertEqual(result.downgraded, 0)
+        self.assertEqual(result.unchanged, 1)
+        self.assertEqual(len(result.errors), 1)
+        self.assertGreaterEqual(result.duration_seconds, 0)
 
     def test_period_date_validation_rejects_malformed_or_naive_values(self):
         self.assertFalse(_valid_period_date("not-a-date"))

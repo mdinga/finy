@@ -246,6 +246,31 @@ PAYFAST_SOURCE_HOSTS = config(
     default="sandbox.payfast.co.za,www.payfast.co.za,w1w.payfast.co.za,w2w.payfast.co.za",
 )
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "lifecycle": {
+            "format": "{message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "lifecycle_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "lifecycle",
+            "level": "INFO",
+        },
+    },
+    "loggers": {
+        "subscriptions.lifecycle": {
+            "handlers": ["lifecycle_console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 
 # DRF (basic)
 REST_FRAMEWORK = {

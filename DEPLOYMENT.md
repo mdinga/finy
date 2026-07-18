@@ -156,3 +156,21 @@ If migration or verification fails before reopening writes:
 Do not switch back to an older SQLite snapshot after users have written data to
 PostgreSQL. That would lose those writes. Once production is reopened, recovery
 must reconcile or restore PostgreSQL from an appropriate backup instead.
+
+## Subscription lifecycle scheduler
+
+Complete and verify the PostgreSQL cutover before scheduling subscription
+lifecycle processing for live subscriptions. Take a current database backup
+before the first scheduled production run.
+
+Reviewed systemd templates and installation instructions are provided in
+`deploy/README.md`. They use `/srv/finy/app`, `/srv/finy/venv/bin/python`, the
+`finy` service account, and `/etc/finy/finy.env` only as proposed conventions.
+Match every path and account to the real Gunicorn deployment before installing
+the units.
+
+The timer runs `process_subscription_lifecycle` every 15 minutes. The oneshot
+service and nonblocking `flock` prevent concurrent processing. Record-level
+errors allow other subscriptions to finish but make the command exit nonzero so
+systemd and journald expose a partial failure. A lock overlap is a successful
+no-op because another valid run is already processing subscriptions.

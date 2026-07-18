@@ -69,6 +69,20 @@ payments at `/subscriptions/billing/`. Billing is the subscription-management su
 for Free upgrades and eligible Basic cancellation. It never displays provider tokens,
 provider payment identifiers, notification payloads, signatures, or audit fields.
 
+## Lifecycle operations
+
+`python manage.py process_subscription_lifecycle` reports checked, transitioned,
+past-due, downgraded, unchanged, and error counts plus run duration. Individual malformed
+subscriptions are identified only by local subscription ID and do not prevent later
+records from being processed. Any record error makes the command exit nonzero after the
+summary; an entirely successful run exits zero.
+
+The reviewed systemd templates in `deploy/systemd` run this command every 15 minutes.
+The oneshot service and a nonblocking runtime lock prevent overlap. A lock overlap logs
+`subscription.lifecycle.lock_skipped` and exits successfully without processing because
+another valid invocation already owns the work. See `deploy/README.md` for path
+substitution, installation, logging, disablement, and rollback instructions.
+
 ## Tests
 
 Run the subscription tests:
