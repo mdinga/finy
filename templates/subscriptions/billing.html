@@ -1,0 +1,124 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Billing & subscription | Finy</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'ui/css/workspace.css' %}">
+  <style>
+    @media (max-width: 575.98px) {
+      .billing-page > header .container-fluid {
+        flex-wrap: wrap;
+        gap: .75rem;
+      }
+
+      .billing-page > header .container-fluid > a {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .billing-page > header img {
+        height: 52px;
+      }
+
+      .billing-page > header .ms-auto {
+        width: 100%;
+        margin-left: 0 !important;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: .5rem !important;
+      }
+
+      .billing-page > main.container {
+        margin-top: 2rem !important;
+        padding-right: 1rem;
+        padding-left: 1rem;
+      }
+    }
+  </style>
+</head>
+<body class="workspace-page billing-page text-dark">
+  {% include "journeys/_topbar.html" %}
+  <main class="container my-5">
+    <div class="row justify-content-center"><div class="col-12 col-xl-9">
+      <div class="mb-4">
+        <h1 class="h2">Billing &amp; subscription</h1>
+        <p class="text-muted mb-0">View your current Finy plan, subscription status and successful payment history.</p>
+      </div>
+
+      <section class="card task-card mb-4" aria-labelledby="currentPlanHeading">
+        <div class="card-body p-4">
+          <div class="hint mb-2">Subscription</div>
+          <h2 class="h4" id="currentPlanHeading">Current plan</h2>
+          <dl class="row my-4">
+            <dt class="col-sm-5">Current plan</dt>
+            <dd class="col-sm-7"><strong>{{ subscription.plan.name }}</strong></dd>
+            <dt class="col-sm-5">Status</dt>
+            <dd class="col-sm-7">
+              {% if billing_state == "free" %}Free
+              {% elif billing_state == "active" %}Active
+              {% elif billing_state == "past_due" %}Payment problem
+              {% elif billing_state == "cancellation_scheduled" %}Cancellation scheduled
+              {% elif billing_state == "providerless_basic" %}Basic
+              {% else %}Inactive{% endif %}
+            </dd>
+            <dt class="col-sm-5">Monthly price</dt>
+            <dd class="col-sm-7">{% if subscription.plan.currency == "ZAR" %}R{% else %}{{ subscription.plan.currency }} {% endif %}{{ subscription.plan.monthly_price|floatformat:"-2" }}</dd>
+            {% if payment_method %}<dt class="col-sm-5">Payment method</dt><dd class="col-sm-7">{{ payment_method }}</dd>{% endif %}
+          </dl>
+
+          {% if billing_state == "free" %}
+            <p>You’re currently using Finy Free. Upgrade to Basic for higher folder and space limits and additional features.</p>
+            <p class="text-muted">Increase your folder and space limits and unlock premium features.</p>
+            <form method="post" action="{% url 'subscriptions:basic_checkout' %}">
+              {% csrf_token %}<button class="btn workspace-btn-lime" type="submit">Upgrade to Basic</button>
+            </form>
+          {% elif billing_state == "active" %}
+            <p>Your Basic subscription is active.</p>
+            {% if subscription.current_period_end %}<p><strong>Next billing date:</strong> {{ subscription.current_period_end|date:"d F Y" }}</p>
+            {% else %}<p>Your next billing date is not currently available.</p>{% endif %}
+            {% if cancellation_available %}<a class="btn btn-outline-danger" href="{% url 'subscriptions:subscription_cancel_confirmation' %}">Cancel subscription</a>{% endif %}
+          {% elif billing_state == "past_due" %}
+            <p>We haven’t received your latest subscription payment. Your Basic benefits remain available during the grace period.</p>
+            {% if subscription.grace_period_end %}
+              <p><strong>Grace period ends:</strong> {{ subscription.grace_period_end|date:"d F Y" }}</p>
+              <p>Please complete payment by {{ subscription.grace_period_end|date:"d F Y" }} to avoid moving to Free.</p>
+            {% else %}<p>We’re updating your billing status. Please contact us if you need assistance.</p>{% endif %}
+            {% if cancellation_available %}<a class="btn btn-outline-danger" href="{% url 'subscriptions:subscription_cancel_confirmation' %}">Cancel subscription</a>{% endif %}
+          {% elif billing_state == "cancellation_scheduled" %}
+            {% if subscription.current_period_end %}
+              <p>Future PayFast subscription debits have stopped. Your Basic access remains available until {{ subscription.current_period_end|date:"d F Y" }}. After that, your account will move to Free.</p>
+              <p><strong>Access until:</strong> {{ subscription.current_period_end|date:"d F Y" }}</p>
+            {% else %}<p>Future PayFast subscription debits have stopped. Access-until date not available.</p>{% endif %}
+            {% if subscription.cancelled_at %}<p><strong>Cancellation requested:</strong> {{ subscription.cancelled_at|date:"d F Y" }}</p>
+            {% else %}<p>Cancellation request date not available.</p>{% endif %}
+            <p>Your Finy data will not be deleted. If you are above the Free limits, you will keep your existing data but may be unable to create additional folders or spaces.</p>
+          {% elif billing_state == "providerless_basic" %}
+            <p>Your Basic access is active. Online subscription management is not available for this account.</p>
+          {% else %}
+            <p>Your paid subscription is no longer active.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="card task-card" aria-labelledby="paymentHistoryHeading">
+        <div class="card-body p-4">
+          <div class="hint mb-2">Payments</div><h2 class="h4 mb-3" id="paymentHistoryHeading">Payment history</h2>
+          {% if payments %}
+            <div class="table-responsive"><table class="table align-middle mb-0">
+              <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>{% for payment in payments %}<tr>
+                <td>{{ payment.date|date:"d F Y" }}</td><td>{{ payment.type }}</td>
+                <td>{% if payment.currency == "ZAR" %}R{% else %}{{ payment.currency }} {% endif %}{{ payment.gross_amount|floatformat:"2" }}</td>
+                <td>{{ payment.display_status }}</td>
+              </tr>{% endfor %}</tbody>
+            </table></div>
+          {% else %}<p class="text-muted mb-0">No successful payments yet.</p>{% endif %}
+        </div>
+      </section>
+    </div></div>
+  </main>
+</body>
+</html>

@@ -64,6 +64,11 @@ ends. Cancellation and downgrade never delete productivity data; Free creation l
 apply to any later folders or spaces. Refunds, plan switching, Pro checkout, live mode,
 and production configuration remain deliberately excluded.
 
+Authenticated users can review their plan and the ten most recent verified successful
+payments at `/subscriptions/billing/`. Billing is the subscription-management surface
+for Free upgrades and eligible Basic cancellation. It never displays provider tokens,
+provider payment identifiers, notification payloads, signatures, or audit fields.
+
 ## Tests
 
 Run the subscription tests:

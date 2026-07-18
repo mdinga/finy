@@ -6,6 +6,7 @@ from . import views
 app_name = "subscriptions"
 
 urlpatterns = [
+    path("billing/", views.billing, name="billing"),
     path("checkout/basic/", views.basic_checkout, name="basic_checkout"),
     path("payfast/return/<uuid:attempt_id>/", views.payment_return, name="payment_return"),
     path("payfast/cancel/<uuid:attempt_id>/", views.payment_cancel, name="payment_cancel"),

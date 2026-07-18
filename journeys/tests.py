@@ -18,6 +18,32 @@ from journeys.services import (
 User = get_user_model()
 
 
+class AccountProfileTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="profile@example.com",
+            email="profile@example.com",
+            first_name="Profile",
+            password="StrongPass123!",
+        )
+
+    def test_profile_requires_login_and_links_to_billing(self):
+        response = self.client.get(reverse("journeys:profile"))
+        self.assertEqual(response.status_code, 302)
+
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("journeys:profile"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Profile")
+        self.assertContains(response, "Manage billing")
+        self.assertContains(response, reverse("subscriptions:billing"))
+        self.assertNotContains(response, "View upgrade options")
+        self.assertNotContains(response, "Cancel subscription")
+
+
+
+
 class HighestRankingAchievementTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
