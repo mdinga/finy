@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from decouple import config
+from django.core.exceptions import ImproperlyConfigured
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -104,12 +105,46 @@ WSGI_APPLICATION = "finy.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+DATABASE_ENGINE = config("DATABASE_ENGINE", default="sqlite").strip().lower()
+
+if DATABASE_ENGINE in {"sqlite", "sqlite3", "django.db.backends.sqlite3"}:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": config("DATABASE_NAME", default=str(BASE_DIR / "db.sqlite3")),
+        }
     }
-}
+elif DATABASE_ENGINE in {
+    "postgres",
+    "postgresql",
+    "django.db.backends.postgresql",
+}:
+    postgres_settings = {
+        "NAME": config("DATABASE_NAME", default=""),
+        "USER": config("DATABASE_USER", default=""),
+        "PASSWORD": config("DATABASE_PASSWORD", default=""),
+        "HOST": config("DATABASE_HOST", default=""),
+    }
+    missing_database_settings = [
+        f"DATABASE_{name}" for name, value in postgres_settings.items() if not value
+    ]
+    if missing_database_settings:
+        raise ImproperlyConfigured(
+            "PostgreSQL requires: " + ", ".join(missing_database_settings)
+        )
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            **postgres_settings,
+            "PORT": config("DATABASE_PORT", default="5432"),
+            "CONN_MAX_AGE": config("DATABASE_CONN_MAX_AGE", default=60, cast=int),
+            "CONN_HEALTH_CHECKS": True,
+        }
+    }
+else:
+    raise ImproperlyConfigured(
+        "DATABASE_ENGINE must be sqlite or postgresql."
+    )
 
 AUTHENTICATION_BACKENDS = [
     "ui.auth_backends.EmailBackend",
