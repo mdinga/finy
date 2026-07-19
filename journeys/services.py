@@ -112,6 +112,27 @@ def get_highest_ranking_user_achievement(user):
     )
 
 
+def get_next_ranking_achievement(user):
+    current = get_highest_ranking_user_achievement(user)
+    current_rank = get_achievement_rank(current.achievement) if current else None
+    achievements = (
+        Achievement.objects
+        .filter(
+            mission__isnull=False,
+            mission__is_active=True,
+            mission__journey__is_active=True,
+        )
+        .select_related("mission", "mission__journey")
+        .order_by("mission__journey__order", "mission__order", "id")
+    )
+
+    for achievement in achievements:
+        if current_rank is None or get_achievement_rank(achievement) > current_rank:
+            return achievement
+
+    return None
+
+
 def award_achievement(user, achievement):
     current = get_highest_ranking_user_achievement(user)
 

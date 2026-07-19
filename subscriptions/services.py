@@ -2,7 +2,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 from core.models import Folder, Space
 
-from .models import Plan, Subscription
+from .models import PaymentAttempt, PaymentTransaction, Plan, Subscription
 
 
 FREE_PLAN_SLUG = "free"
@@ -58,3 +58,12 @@ def can_create_space(user):
     limit = get_space_limit(user)
     user_created_count = Space.objects.filter(user=user, is_system=False).count()
     return limit is None or user_created_count < limit
+
+
+def user_has_payfast_history(user):
+    subscription = get_user_subscription(user)
+    return (
+        subscription.provider == Subscription.Provider.PAYFAST
+        or PaymentAttempt.objects.filter(user=user).exists()
+        or PaymentTransaction.objects.filter(subscription=subscription).exists()
+    )

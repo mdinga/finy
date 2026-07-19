@@ -63,8 +63,7 @@ body.workspace-page main.container-fluid {
 /* Topbar */
 
 .workspace-page header.border-bottom.bg-white {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 30;
   border-bottom: 1px solid rgba(0, 50, 4, 0.08) !important;
   background:
@@ -120,6 +119,9 @@ body.workspace-page main.container-fluid {
   max-width: 1440px;
   padding-top: 1rem !important;
   padding-bottom: 1rem !important;
+  column-gap: 1rem;
+  row-gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .workspace-page header img {
@@ -148,21 +150,26 @@ body.workspace-page main.container-fluid {
 /* Sidebar */
 
 @media (min-width: 992px) {
-  body.workspace-page {
+  body.workspace-page.workspace-dashboard {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
     overflow: hidden;
   }
 
-  .workspace-page main.container-fluid {
-    height: calc(100dvh - 170px);
+  .workspace-dashboard main.container-fluid {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
     overflow: hidden;
   }
 
-  .workspace-page main.container-fluid > .row {
+  .workspace-dashboard main.container-fluid > .row {
     height: 100%;
     align-items: stretch;
   }
 
-  .workspace-page aside {
+  .workspace-dashboard aside {
     position: static;
     align-self: flex-start;
     height: 100%;
@@ -170,8 +177,8 @@ body.workspace-page main.container-fluid {
     overflow: hidden;
   }
 
-  .workspace-page .sidebar-card,
-  .workspace-page #workspaceMain {
+  .workspace-dashboard .sidebar-card,
+  .workspace-dashboard #workspaceMain {
     height: 100%;
     min-height: 0;
     overflow-y: auto;
@@ -179,7 +186,7 @@ body.workspace-page main.container-fluid {
     scrollbar-gutter: stable;
   }
 
-  .workspace-page #workspaceMain {
+  .workspace-dashboard #workspaceMain {
     padding-bottom: 1rem;
   }
 }

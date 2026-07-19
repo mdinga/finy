@@ -21,7 +21,7 @@
 
   <main class="container-fluid my-4">
     <section class="row justify-content-center">
-      <div class="col-12 col-lg-8">
+      <div class="col-12 col-lg-8 d-flex flex-column">
 
         {% for message in messages %}
           <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
@@ -46,10 +46,10 @@
           </div>
         </div>
 
-        <div class="card task-card mb-3">
+        <div class="card task-card mb-3 order-2">
           <div class="card-body">
             <div class="hint mb-2">Your Progress</div>
-            <h1 class="h3 mb-3">Profile</h1>
+            <h2 class="h4 mb-3">Journey progress</h2>
 
             {% for item in journey_progress %}
               <div class="mb-4">
@@ -72,40 +72,91 @@
           </div>
         </div>
 
-        <div class="card task-card">
+        <div class="card task-card mb-3 order-1" id="profileBadgeProgress">
           <div class="card-body">
-            <div class="hint mb-2">Current Badge</div>
-            <h2 class="h5 mb-3">Highest Ranking Achievement</h2>
+            <div class="hint mb-2">Badge Progress</div>
+            <h2 class="h5 mb-3">Current and next badge</h2>
 
-            {% if highest_achievement %}
-              <div class="profile-current-badge{% if highest_achievement.achievement.badge_image %} has-badge-image{% endif %}">
-                {% if highest_achievement.achievement.badge_image %}
-                  <img
-                    src="{% static 'ui/images/icons/'|add:highest_achievement.achievement.badge_image %}"
-                    alt="{{ highest_achievement.achievement.name }}"
-                    class="profile-badge-image"
-                    onerror="this.parentElement.classList.add('badge-image-missing')">
-                  <div class="profile-badge-fallback">
-                    {{ highest_achievement.achievement.name|first }}
-                  </div>
-                {% else %}
-                  <div class="profile-badge-fallback">
-                    {{ highest_achievement.achievement.name|first }}
-                  </div>
-                {% endif %}
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <div class="h-100 rounded border p-3">
+                  <div class="small text-muted mb-2">Current badge</div>
 
-                <div>
-                  <strong>{{ highest_achievement.achievement.name }}</strong>
-                  <p class="mb-1">{{ highest_achievement.achievement.message }}</p>
-                  <div class="small text-muted">
-                    Unlocked {{ highest_achievement.unlocked_at|date:"d M Y H:i" }}
-                  </div>
+                  {% if highest_achievement %}
+                    <div class="profile-current-badge{% if highest_achievement.achievement.badge_image %} has-badge-image{% endif %}">
+                      {% if highest_achievement.achievement.badge_image %}
+                        <img
+                          src="{% static 'ui/images/icons/'|add:highest_achievement.achievement.badge_image %}"
+                          alt="{{ highest_achievement.achievement.name }}"
+                          class="profile-badge-image"
+                          onerror="this.parentElement.classList.add('badge-image-missing')">
+                        <div class="profile-badge-fallback">{{ highest_achievement.achievement.name|first }}</div>
+                      {% else %}
+                        <div class="profile-badge-fallback">{{ highest_achievement.achievement.name|first }}</div>
+                      {% endif %}
+
+                      <div>
+                        <strong>{{ highest_achievement.achievement.name }}</strong>
+                        <p class="mb-1">{{ highest_achievement.achievement.message }}</p>
+                        <div class="small text-muted">Earned {{ highest_achievement.unlocked_at|date:"d M Y" }}</div>
+                      </div>
+                    </div>
+                  {% else %}
+                    <p class="text-muted mb-0">No badge earned yet.</p>
+                  {% endif %}
                 </div>
               </div>
-            {% else %}
-              <p class="text-muted mb-0">
-                No achievements unlocked yet. Start by capturing your first task.
+
+              <div class="col-12 col-md-6">
+                <div class="h-100 rounded border p-3 bg-light">
+                  <div class="small text-muted mb-2">Potential next badge</div>
+                  {% if next_achievement %}
+                    <div class="profile-current-badge{% if next_achievement.badge_image %} has-badge-image{% endif %} opacity-75">
+                      {% if next_achievement.badge_image %}
+                        <img
+                          src="{% static 'ui/images/icons/'|add:next_achievement.badge_image %}"
+                          alt="{{ next_achievement.name }}"
+                          class="profile-badge-image"
+                          onerror="this.parentElement.classList.add('badge-image-missing')">
+                        <div class="profile-badge-fallback">{{ next_achievement.name|first }}</div>
+                      {% else %}
+                        <div class="profile-badge-fallback">{{ next_achievement.name|first }}</div>
+                      {% endif %}
+
+                      <div>
+                        <strong>{{ next_achievement.name }}</strong>
+                        <p class="mb-1">{{ next_achievement.message }}</p>
+                        <div class="small text-muted mb-2">
+                          Unlock through {{ next_achievement.mission.journey.name }} — {{ next_achievement.mission.name }}
+                        </div>
+                        <div class="small fw-semibold">
+                          {{ next_badge_progress }} of {{ next_badge_target }} steps completed
+                        </div>
+                      </div>
+                    </div>
+                  {% elif highest_achievement %}
+                    <p class="mb-0">You’ve earned every available badge.</p>
+                  {% else %}
+                    <p class="text-muted mb-0">The next badge will appear when Journey content is available.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card task-card border-danger mt-3 order-3">
+          <div class="card-body">
+            <div class="hint text-danger mb-2">Danger Zone</div>
+            <h2 class="h5">Delete profile</h2>
+            {% if profile_deletion_blocked %}
+              <p class="mb-0">
+                Profile deletion is unavailable because this account has PayFast checkout or payment history.
+                This protects recurring billing and required payment records.
               </p>
+            {% else %}
+              <p>This permanently deletes your account and all Finy productivity data.</p>
+              <a class="btn btn-outline-danger" href="{% url 'journeys:delete_profile_warning' %}">Delete profile</a>
             {% endif %}
           </div>
         </div>

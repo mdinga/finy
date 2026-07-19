@@ -13,6 +13,7 @@ from journeys.services import (
     update_focus_journey_progress,
     update_mission_progress,
 )
+from subscriptions.models import PaymentAttempt, Plan, Subscription
 
 
 User = get_user_model()
@@ -27,6 +28,9 @@ class AccountProfileTests(TestCase):
             password="StrongPass123!",
         )
 
+    def acknowledge_deletion_warning(self):
+        return self.client.post(reverse("journeys:delete_profile_warning"))
+
     def test_profile_requires_login_and_links_to_billing(self):
         response = self.client.get(reverse("journeys:profile"))
         self.assertEqual(response.status_code, 302)
@@ -40,8 +44,104 @@ class AccountProfileTests(TestCase):
         self.assertContains(response, reverse("subscriptions:billing"))
         self.assertNotContains(response, "View upgrade options")
         self.assertNotContains(response, "Cancel subscription")
+        self.assertContains(response, "Delete profile")
+        self.assertContains(response, 'id="profileBadgeProgress"', html=False)
+        self.assertContains(
+            response,
+            'class="card task-card mb-3 order-1" id="profileBadgeProgress"',
+            html=False,
+        )
 
+    def test_workspace_menu_links_to_profile(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("ui:user_home"))
 
+        self.assertContains(response, reverse("journeys:profile"))
+        self.assertContains(response, "workspace-dashboard")
+
+    def test_confirmation_cannot_be_opened_before_first_warning(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("journeys:delete_profile_confirm"))
+
+        self.assertRedirects(response, reverse("journeys:delete_profile_warning"))
+
+    def test_deletion_requires_correct_password_and_exact_confirmation(self):
+        self.client.force_login(self.user)
+        self.acknowledge_deletion_warning()
+
+        wrong_password = self.client.post(
+            reverse("journeys:delete_profile_confirm"),
+            {"password": "wrong", "confirmation": "DELETE"},
+        )
+        self.assertEqual(wrong_password.status_code, 200)
+        self.assertContains(wrong_password, "Your password is incorrect.")
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+        wrong_confirmation = self.client.post(
+            reverse("journeys:delete_profile_confirm"),
+            {"password": "StrongPass123!", "confirmation": "delete"},
+        )
+        self.assertEqual(wrong_confirmation.status_code, 200)
+        self.assertContains(wrong_confirmation, 'Type &quot;DELETE&quot; exactly')
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_free_profile_deletion_permanently_removes_user_data(self):
+        journey = Journey.objects.create(code="delete-journey", name="Delete Journey")
+        mission = Mission.objects.create(
+            journey=journey,
+            code="delete-mission",
+            name="Delete Mission",
+        )
+        UserMission.objects.create(user=self.user, mission=mission, progress_count=1)
+        inbox = Folder.objects.get(user=self.user, is_inbox=True)
+        Task.objects.create(user=self.user, folder=inbox, title="Private task")
+        user_id = self.user.pk
+
+        self.client.force_login(self.user)
+        self.assertRedirects(
+            self.acknowledge_deletion_warning(),
+            reverse("journeys:delete_profile_confirm"),
+        )
+        response = self.client.post(
+            reverse("journeys:delete_profile_confirm"),
+            {"password": "StrongPass123!", "confirmation": "DELETE"},
+        )
+
+        self.assertRedirects(response, reverse("ui:home"))
+        self.assertFalse(User.objects.filter(pk=user_id).exists())
+        self.assertFalse(Task.objects.filter(user_id=user_id).exists())
+        self.assertFalse(UserMission.objects.filter(user_id=user_id).exists())
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_payfast_linked_subscription_blocks_profile_deletion(self):
+        subscription = self.user.subscription
+        subscription.provider = Subscription.Provider.PAYFAST
+        subscription.save(update_fields=["provider", "updated_at"])
+        self.client.force_login(self.user)
+
+        warning = self.client.get(reverse("journeys:delete_profile_warning"))
+        blocked_post = self.client.post(reverse("journeys:delete_profile_warning"))
+
+        self.assertContains(warning, "cannot currently be deleted")
+        self.assertEqual(blocked_post.status_code, 403)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+
+    def test_payfast_attempt_blocks_profile_deletion(self):
+        PaymentAttempt.objects.create(
+            user=self.user,
+            subscription=self.user.subscription,
+            plan=Plan.objects.get(slug="basic"),
+            merchant_payment_id="profile-delete-blocked",
+            amount="89.00",
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse("journeys:delete_profile_warning"))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        self.assertTrue(PaymentAttempt.objects.filter(user=self.user).exists())
 
 
 class HighestRankingAchievementTests(TestCase):
@@ -118,6 +218,51 @@ class HighestRankingAchievementTests(TestCase):
 
         self.assertContains(response, "Higher Badge")
         self.assertNotContains(response, "Lower Badge")
+
+    def test_profile_displays_current_and_potential_next_badge(self):
+        UserAchievement.objects.create(
+            user=self.user,
+            achievement=self.lower_achievement,
+        )
+        UserMission.objects.create(
+            user=self.user,
+            mission=self.higher_achievement.mission,
+            progress_count=0,
+        )
+        self.lower_achievement.message = "Current badge description"
+        self.lower_achievement.save(update_fields=["message"])
+        self.higher_achievement.message = "Next badge description"
+        self.higher_achievement.save(update_fields=["message"])
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("journeys:profile"))
+
+        self.assertContains(response, "Current badge")
+        self.assertContains(response, "Lower Badge")
+        self.assertContains(response, "Current badge description")
+        self.assertContains(response, "Potential next badge")
+        self.assertContains(response, "Higher Badge")
+        self.assertContains(response, "Next badge description")
+        self.assertContains(response, "0 of 1 steps completed")
+
+    def test_profile_displays_first_badge_as_next_before_any_are_earned(self):
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("journeys:profile"))
+
+        self.assertContains(response, "No badge earned yet")
+        self.assertContains(response, "Lower Badge")
+
+    def test_profile_reports_when_every_badge_is_earned(self):
+        UserAchievement.objects.create(
+            user=self.user,
+            achievement=self.higher_achievement,
+        )
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("journeys:profile"))
+
+        self.assertContains(response, "You’ve earned every available badge")
 
     def test_awarding_higher_achievement_removes_lower_achievement(self):
         award_achievement(self.user, self.lower_achievement)

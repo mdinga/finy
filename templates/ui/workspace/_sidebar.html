@@ -160,6 +160,12 @@
       <ul class="list-group">
 
         <li class="list-group-item">
+          <a href="{% url 'journeys:profile' %}" class="btn btn-link btn-sm text-decoration-none text-reset p-0">
+            Profile
+          </a>
+        </li>
+
+        <li class="list-group-item">
           <form method="post" action="{% url 'ui:logout' %}" class="m-0">
             {% csrf_token %}
             <button

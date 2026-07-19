@@ -1,15 +1,26 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth import logout
+from django.contrib import messages
+from django.db import transaction
+from django.shortcuts import redirect, render
 from django.views.generic import TemplateView
 from django.http import JsonResponse
 from django.views import View
 
 from journeys.models import Journey, Mission, UserMission, UserAchievement
+from journeys.forms import DeleteProfileForm
 from journeys.services import (
     get_highest_ranking_user_achievement,
+    get_next_ranking_achievement,
     mission_prerequisites_complete,
 )
+from core.models import Attachment, Folder, Space, SpaceCategory, Task
+from subscriptions.models import Plan
 from subscriptions.cancellation import is_cancellation_eligible
-from subscriptions.services import get_user_subscription
+from subscriptions.services import get_user_subscription, user_has_payfast_history
+
+
+DELETE_WARNING_SESSION_KEY = "profile_deletion_warning_acknowledged"
 
 
 def required_journey_complete(user, journey):
@@ -226,6 +237,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
 class ProfileView(LoginRequiredMixin, TemplateView):
     template_name = "journeys/profile.html"
+    login_url = "ui:login"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -256,6 +268,20 @@ class ProfileView(LoginRequiredMixin, TemplateView):
 
         context["journey_progress"] = journey_progress
         context["highest_achievement"] = get_highest_ranking_user_achievement(user)
+        next_achievement = get_next_ranking_achievement(user)
+        context["next_achievement"] = next_achievement
+        if next_achievement:
+            next_progress = UserMission.objects.filter(
+                user=user,
+                mission=next_achievement.mission,
+            ).first()
+            context["next_badge_progress"] = (
+                next_progress.progress_count
+                if next_progress
+                and mission_prerequisites_complete(user, next_achievement.mission)
+                else 0
+            )
+            context["next_badge_target"] = next_achievement.mission.target_count
         context["unseen_achievement"] = (
             UserAchievement.objects
             .filter(user=user, seen=False)
@@ -265,8 +291,94 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         subscription = get_user_subscription(user)
         context["subscription"] = subscription
         context["cancellation_available"] = is_cancellation_eligible(subscription)
+        context["upgrade_available"] = Plan.objects.filter(
+            is_active=True,
+            is_available=True,
+            monthly_price__gt=subscription.plan.monthly_price,
+        ).exists()
+        context["profile_deletion_blocked"] = user_has_payfast_history(user)
 
         return context
+
+
+class DeleteProfileWarningView(LoginRequiredMixin, View):
+    login_url = "ui:login"
+
+    def get(self, request):
+        request.session.pop(DELETE_WARNING_SESSION_KEY, None)
+        return render(
+            request,
+            "journeys/delete_profile_warning.html",
+            {"profile_deletion_blocked": user_has_payfast_history(request.user)},
+        )
+
+    def post(self, request):
+        if user_has_payfast_history(request.user):
+            return render(
+                request,
+                "journeys/delete_profile_warning.html",
+                {"profile_deletion_blocked": True},
+                status=403,
+            )
+        request.session[DELETE_WARNING_SESSION_KEY] = True
+        return redirect("journeys:delete_profile_confirm")
+
+
+class DeleteProfileConfirmView(LoginRequiredMixin, View):
+    login_url = "ui:login"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return self.handle_no_permission()
+        if not request.session.get(DELETE_WARNING_SESSION_KEY):
+            return redirect("journeys:delete_profile_warning")
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request):
+        if user_has_payfast_history(request.user):
+            request.session.pop(DELETE_WARNING_SESSION_KEY, None)
+            return redirect("journeys:delete_profile_warning")
+        return render(
+            request,
+            "journeys/delete_profile_confirm.html",
+            {"form": DeleteProfileForm(user=request.user)},
+        )
+
+    def post(self, request):
+        if user_has_payfast_history(request.user):
+            request.session.pop(DELETE_WARNING_SESSION_KEY, None)
+            return redirect("journeys:delete_profile_warning")
+
+        form = DeleteProfileForm(request.POST, user=request.user)
+        if not form.is_valid():
+            return render(
+                request,
+                "journeys/delete_profile_confirm.html",
+                {"form": form},
+            )
+
+        user = request.user
+        attachment_files = list(
+            Attachment.objects.filter(task__user=user)
+            .exclude(image="")
+            .values_list("image", flat=True)
+        )
+        storage = Attachment._meta.get_field("image").storage
+
+        def delete_attachment_files():
+            for file_name in attachment_files:
+                storage.delete(file_name)
+
+        logout(request)
+        with transaction.atomic():
+            Task.objects.filter(user=user).delete()
+            Space.objects.filter(user=user).delete()
+            Folder.objects.filter(user=user).delete()
+            SpaceCategory.objects.filter(user=user).delete()
+            user.delete()
+            transaction.on_commit(delete_attachment_files, robust=True)
+        messages.success(request, "Your Finy profile has been permanently deleted.")
+        return redirect("ui:home")
 
 class MarkAchievementSeenView(LoginRequiredMixin, View):
     login_url = "ui:login"
