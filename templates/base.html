@@ -14,6 +14,20 @@
   <link rel="apple-touch-icon" sizes="180x180" href="{% static 'ui/images/favicons/apple-touch-icon.png' %}">
   <link rel="manifest" href="{% static 'ui/images/favicons/site.webmanifest' %}">
 
+  {% if GA_MEASUREMENT_ID %}
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ GA_MEASUREMENT_ID }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      window.dataLayer.push(arguments);
+    }
+
+    gtag("js", new Date());
+    gtag("config", "{{ GA_MEASUREMENT_ID }}");
+  </script>
+  {% endif %}
+
   {% block extra_head %}{% endblock %}
 </head>
 <body>

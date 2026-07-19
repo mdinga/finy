@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
@@ -11,6 +11,25 @@ from subscriptions.models import PaymentAttempt, Subscription
 from subscriptions.models import Plan
 
 User = get_user_model()
+
+
+class AnalyticsTemplateTests(TestCase):
+    @override_settings(GA_MEASUREMENT_ID="")
+    def test_ga_script_is_absent_when_measurement_id_is_empty(self):
+        response = self.client.get(reverse("ui:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "googletagmanager.com/gtag/js")
+        self.assertNotContains(response, "G-BEBCNTGBXF")
+
+    @override_settings(GA_MEASUREMENT_ID="G-TEST123456")
+    def test_ga_script_uses_configured_measurement_id(self):
+        response = self.client.get(reverse("ui:login"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "https://www.googletagmanager.com/gtag/js?id=G-TEST123456")
+        self.assertContains(response, 'gtag("config", "G-TEST123456")')
+
 
 class RegistrationFlowTests(TestCase):
     def create_coupon(self, code="INVITE"):
