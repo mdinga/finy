@@ -1,7 +1,9 @@
+import hashlib
 from collections import OrderedDict
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -9,7 +11,13 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import PaymentAttempt, PaymentNotification, PaymentTransaction, Plan, Subscription
-from .payfast import generate_signature, get_request_source_ip, sanitize_notification
+from .payfast import (
+    generate_itn_signature,
+    generate_signature,
+    get_request_source_ip,
+    parse_itn_pairs,
+    sanitize_notification,
+)
 
 
 User = get_user_model()
@@ -44,6 +52,29 @@ class PayFastCheckoutTests(TestCase):
         self.assertEqual(
             generate_signature(fields, "secret phrase"),
             "ee5716ca0f1ab2083b91ddd5aeba7c5b",
+        )
+
+    def test_itn_signature_preserves_received_order_and_empty_fields(self):
+        raw_body = (
+            "first=space+%2B+amp%26+percent%25+apostrophe%27+unicode+caf%C3%A9%0D%0Aline"
+            "&empty=&duplicate=one&duplicate=two&signature=provider&ignored=after"
+        ).encode()
+        pairs = parse_itn_pairs(raw_body)
+        expected_string = (
+            "first=space+%2B+amp%26+percent%25+apostrophe%27+unicode+caf%C3%A9%0D%0Aline"
+            "&empty=&duplicate=one&duplicate=two&passphrase=secret+%26+salt%25"
+        )
+        expected = hashlib.md5(
+            expected_string.encode(), usedforsecurity=False
+        ).hexdigest()
+
+        self.assertEqual(
+            generate_itn_signature(pairs, "secret & salt%"),
+            expected,
+        )
+        self.assertNotEqual(
+            generate_itn_signature(list(reversed(pairs)), "secret & salt%"),
+            expected,
         )
 
     def test_checkout_requires_authentication(self):
@@ -158,11 +189,18 @@ class PayFastITNTests(TestCase):
             )
         )
         data.update(changes)
-        data["signature"] = generate_signature(data, "test-passphrase")
+        data["signature"] = generate_itn_signature(data.items(), "test-passphrase")
         return data
 
+    def submit_payload(self, data):
+        return self.client.post(
+            reverse("subscriptions:payfast_notify"),
+            urlencode(data),
+            content_type="application/x-www-form-urlencoded",
+        )
+
     def post_itn(self, **changes):
-        return self.client.post(reverse("subscriptions:payfast_notify"), self.payload(**changes))
+        return self.submit_payload(self.payload(**changes))
 
     def activate_initial_subscription(self):
         response = self.post_itn()
@@ -173,7 +211,7 @@ class PayFastITNTests(TestCase):
     @patch("subscriptions.payfast.validate_with_payfast", return_value=True)
     @patch("subscriptions.payfast.validate_source", return_value=(True, "197.97.145.1"))
     def test_verified_complete_itn_activates_basic(self, source_mock, provider_mock):
-        response = self.client.post(reverse("subscriptions:payfast_notify"), self.payload())
+        response = self.submit_payload(self.payload())
 
         self.assertEqual(response.status_code, 200)
         self.user.subscription.refresh_from_db()
@@ -304,10 +342,10 @@ class PayFastITNTests(TestCase):
         subscription = self.activate_initial_subscription()
         payload = self.payload(pf_payment_id="pf-renewal-duplicate")
 
-        first = self.client.post(reverse("subscriptions:payfast_notify"), payload)
+        first = self.submit_payload(payload)
         subscription.refresh_from_db()
         renewed_end = subscription.current_period_end
-        second = self.client.post(reverse("subscriptions:payfast_notify"), payload)
+        second = self.submit_payload(payload)
 
         self.assertEqual((first.status_code, second.status_code), (200, 200))
         subscription.refresh_from_db()
@@ -360,8 +398,8 @@ class PayFastITNTests(TestCase):
     @patch("subscriptions.payfast.validate_source", return_value=(True, "197.97.145.1"))
     def test_duplicate_itn_is_idempotent(self, source_mock, provider_mock):
         payload = self.payload()
-        first = self.client.post(reverse("subscriptions:payfast_notify"), payload)
-        second = self.client.post(reverse("subscriptions:payfast_notify"), payload)
+        first = self.submit_payload(payload)
+        second = self.submit_payload(payload)
 
         self.assertEqual((first.status_code, second.status_code), (200, 200))
         self.assertEqual(PaymentNotification.objects.count(), 1)
@@ -372,11 +410,9 @@ class PayFastITNTests(TestCase):
     def test_duplicate_provider_payment_id_with_changed_payload_is_idempotent(
         self, source_mock, provider_mock
     ):
-        first = self.client.post(reverse("subscriptions:payfast_notify"), self.payload())
+        first = self.submit_payload(self.payload())
         changed_payload = self.payload(custom_str1="PayFast retry")
-        second = self.client.post(
-            reverse("subscriptions:payfast_notify"), changed_payload
-        )
+        second = self.submit_payload(changed_payload)
 
         self.assertEqual((first.status_code, second.status_code), (200, 200))
         self.assertEqual(PaymentNotification.objects.count(), 2)
@@ -392,9 +428,11 @@ class PayFastITNTests(TestCase):
         for index, changes in enumerate(cases):
             data = self.payload(**{key: value for key, value in changes.items() if key != "signature"})
             data["pf_payment_id"] = f"pf-invalid-{index}"
-            data["signature"] = changes.get("signature") or generate_signature(data, "test-passphrase")
+            data["signature"] = changes.get("signature") or generate_itn_signature(
+                data.items(), "test-passphrase"
+            )
             self.assertEqual(
-                self.client.post(reverse("subscriptions:payfast_notify"), data).status_code,
+                self.submit_payload(data).status_code,
                 400,
             )
         self.user.subscription.refresh_from_db()
@@ -404,7 +442,7 @@ class PayFastITNTests(TestCase):
     @patch("subscriptions.payfast.validate_with_payfast", return_value=False)
     @patch("subscriptions.payfast.validate_source", return_value=(True, "197.97.145.1"))
     def test_failed_server_validation_never_activates(self, source_mock, provider_mock):
-        response = self.client.post(reverse("subscriptions:payfast_notify"), self.payload())
+        response = self.submit_payload(self.payload())
         self.assertEqual(response.status_code, 400)
         self.user.subscription.refresh_from_db()
         self.assertEqual(self.user.subscription.plan.slug, "free")
@@ -413,7 +451,7 @@ class PayFastITNTests(TestCase):
     @patch("subscriptions.payfast.validate_with_payfast", return_value=True)
     @patch("subscriptions.payfast.validate_source", return_value=(False, "127.0.0.1"))
     def test_invalid_source_never_activates(self, source_mock, provider_mock):
-        response = self.client.post(reverse("subscriptions:payfast_notify"), self.payload())
+        response = self.submit_payload(self.payload())
         self.assertEqual(response.status_code, 400)
         provider_mock.assert_not_called()
         self.assertFalse(PaymentTransaction.objects.exists())

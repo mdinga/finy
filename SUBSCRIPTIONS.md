@@ -71,6 +71,12 @@ For an emergency checkout stop, keep `PAYFAST_ENABLED` and
 notifications continue to be verified while new checkout and cancellation calls stop.
 Secrets must remain outside Git.
 
+PayFast ITN signatures are validated from the received form body in its original
+field order. Blank posted fields are preserved, PHP-style form encoding is used,
+the signature field is excluded, and the configured passphrase is appended before
+the MD5 digest is calculated. This is distinct from the checkout-form signature
+and the recurring API signature.
+
 Verified renewals extend the existing billing period. Overdue Basic subscriptions
 receive a three-day grace period before an automatic downgrade to Free. Sandbox
 PayFast subscriptions can be cancelled from Profile: future debits stop after a

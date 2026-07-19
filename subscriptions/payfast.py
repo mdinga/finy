@@ -6,7 +6,7 @@ import uuid
 from calendar import monthrange
 from collections import OrderedDict
 from decimal import Decimal, InvalidOperation
-from urllib.parse import urlencode, urljoin
+from urllib.parse import parse_qsl, quote_plus, urlencode, urljoin
 from urllib.request import Request, urlopen
 
 from django.conf import settings
@@ -59,6 +59,30 @@ def generate_signature(data, passphrase):
     if passphrase:
         values.append(("passphrase", passphrase))
     encoded = urlencode(values)
+    return hashlib.md5(encoded.encode("utf-8"), usedforsecurity=False).hexdigest()
+
+
+def _php_quote_plus(value, safe="", encoding=None, errors=None):
+    return quote_plus(value, safe=safe, encoding=encoding, errors=errors).replace("~", "%7E")
+
+
+def parse_itn_pairs(raw_body):
+    return parse_qsl(
+        raw_body.decode("utf-8", errors="strict"),
+        keep_blank_values=True,
+        strict_parsing=False,
+    )
+
+
+def generate_itn_signature(pairs, passphrase):
+    values = []
+    for key, value in pairs:
+        if key == "signature":
+            break
+        values.append((key, str(value)))
+    if passphrase:
+        values.append(("passphrase", passphrase))
+    encoded = urlencode(values, quote_via=_php_quote_plus)
     return hashlib.md5(encoded.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
@@ -193,7 +217,10 @@ def process_itn(request):
     source_valid, source_ip = validate_source(request)
     notification.source_valid = source_valid
     notification.source_ip = source_ip
-    expected_signature = generate_signature(data, settings.PAYFAST_PASSPHRASE)
+    expected_signature = generate_itn_signature(
+        parse_itn_pairs(request.body),
+        settings.PAYFAST_PASSPHRASE,
+    )
     notification.signature_valid = hmac.compare_digest(
         expected_signature,
         data.get("signature", ""),
