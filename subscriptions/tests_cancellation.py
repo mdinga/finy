@@ -336,7 +336,7 @@ class CancellationViewTests(TestCase):
         other.subscription.refresh_from_db()
         self.assertTrue(self.user.subscription.cancel_at_period_end)
         self.assertFalse(other.subscription.cancel_at_period_end)
-        self.assertContains(response, "Basic access remains available until")
+        self.assertContains(response, "Basic subscription remains current until")
         self.assertNotContains(response, "owner-token")
 
     @patch(

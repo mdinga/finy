@@ -56,6 +56,7 @@
       These are your tasks.
     </div>
 
+    <div id="context-quick-add"></div>
     <div id="task-list"></div>
   </div>
 
@@ -67,7 +68,20 @@
         <button id="calNext" class="btn btn-plain btn-sm" type="button">›</button>
       </div>
 
-      <div class="d-flex align-items-center gap-2">
+      <div class="calendar-toolbar-controls">
+        <div class="my-day-control">
+          <label for="my-day-filter" class="small fw-semibold">Filter by</label>
+          <select id="my-day-filter" class="form-select form-select-sm">
+            <option value="">All spaces</option>
+          </select>
+        </div>
+        <div class="my-day-control">
+          <label for="my-day-sort" class="small fw-semibold">Sort by</label>
+          <select id="my-day-sort" class="form-select form-select-sm">
+            <option value="quickest">Quickest first</option>
+            <option value="due_date" selected>Due date</option>
+          </select>
+        </div>
         <span class="hint m-0">Planned dates only</span>
         <button id="calBackToList" class="btn btn-plain btn-sm" type="button">Back</button>
       </div>

@@ -3,6 +3,7 @@ from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment,
 from core.repeating import generate_repeating_tasks
 from django.utils import timezone
 from django.db.models import Q
+from django.urls import reverse
 from journeys.services import (
     update_capture_journey_progress,
     update_organised_tasks_progress,
@@ -154,9 +155,75 @@ class SubtaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['promoted_to']
 
 class AttachmentSerializer(serializers.ModelSerializer):
+    filename = serializers.CharField(source="original_filename", read_only=True)
+    size = serializers.IntegerField(source="file_size", read_only=True)
+    uploaded_at = serializers.DateTimeField(source="created_at", read_only=True)
+    download_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Attachment
-        fields = ['id', 'image', 'created_at']
+        fields = [
+            "id",
+            "filename",
+            "size",
+            "content_type",
+            "uploaded_at",
+            "download_url",
+        ]
+
+    def get_download_url(self, obj):
+        return reverse(
+            "api:task-file-download",
+            kwargs={"pk": obj.task_id, "file_id": obj.pk},
+        )
+
+
+class ContextualQuickAddSerializer(serializers.Serializer):
+    CONTEXT_DATE = "date"
+    CONTEXT_MY_DAY = "my_day"
+    CONTEXT_FOLDER = "folder"
+    CONTEXT_SPACE = "space"
+    CONTEXT_INBOX = "inbox"
+
+    context_type = serializers.ChoiceField(
+        choices=[
+            CONTEXT_DATE,
+            CONTEXT_MY_DAY,
+            CONTEXT_FOLDER,
+            CONTEXT_SPACE,
+            CONTEXT_INBOX,
+        ]
+    )
+    title = serializers.CharField(max_length=255, trim_whitespace=True)
+    planned_date = serializers.DateField(required=False)
+    folder_id = serializers.IntegerField(required=False, min_value=1)
+    space_id = serializers.IntegerField(required=False, min_value=1)
+    client_request_id = serializers.RegexField(
+        regex=r"^[A-Za-z0-9_-]{8,64}$",
+        required=False,
+    )
+
+    def validate(self, attrs):
+        context_type = attrs["context_type"]
+        allowed_fields = {
+            self.CONTEXT_DATE: {"planned_date"},
+            self.CONTEXT_MY_DAY: {"planned_date"},
+            self.CONTEXT_FOLDER: {"folder_id"},
+            self.CONTEXT_SPACE: {"space_id"},
+            self.CONTEXT_INBOX: set(),
+        }
+        contextual_fields = {
+            field
+            for field in ("planned_date", "folder_id", "space_id")
+            if field in attrs
+        }
+
+        if contextual_fields != allowed_fields[context_type]:
+            raise serializers.ValidationError(
+                {"context_type": "Invalid values for this Quick Add context."}
+            )
+
+        return attrs
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -173,6 +240,9 @@ class TaskSerializer(serializers.ModelSerializer):
     subtasks = SubtaskSerializer(many=True, read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     is_priority = serializers.BooleanField(read_only=True)
+    outstanding_next_action_count = serializers.IntegerField(read_only=True)
+    notes_count = serializers.IntegerField(read_only=True)
+    file_count = serializers.IntegerField(read_only=True)
 
     # Helper fields the UI can render without extra calls
     folder_name = serializers.CharField(source='folder.name', read_only=True)
@@ -186,6 +256,8 @@ class TaskSerializer(serializers.ModelSerializer):
             'completed', 'completed_at', 'repeat_rule', 'is_priority',
             'created_at', 'updated_at',
             'subtasks', 'attachments',
+            'outstanding_next_action_count', 'notes_count',
+            'file_count',
         ]
 
     def __init__(self, *args, **kwargs):

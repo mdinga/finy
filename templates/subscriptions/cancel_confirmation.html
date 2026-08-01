@@ -22,13 +22,13 @@
               <dd class="col-sm-7">{{ subscription.plan.name }}</dd>
               <dt class="col-sm-5">Monthly price</dt>
               <dd class="col-sm-7">R{{ subscription.plan.monthly_price|floatformat:"-2" }} per month</dd>
-              <dt class="col-sm-5">Basic access until</dt>
+              <dt class="col-sm-5">Basic subscription until</dt>
               <dd class="col-sm-7">{{ subscription.current_period_end|date:"d F Y" }}</dd>
             </dl>
             <p>Future PayFast subscription debits will stop immediately after cancellation is confirmed.</p>
-            <p>You will keep Basic access until the date shown above. No Finy data will be deleted.</p>
+            <p>Your Basic subscription remains recorded until the date shown above. No Finy data will be deleted.</p>
             <div class="alert alert-warning">
-              If you are above the Free folder or space limits after downgrade, your existing data will remain available, but you may be unable to create additional folders or spaces.
+              Moving to Free does not restrict current product features, folders, or spaces.
             </div>
             <form method="post" action="{% url 'subscriptions:subscription_cancel' %}" class="d-flex flex-wrap gap-2">
               {% csrf_token %}

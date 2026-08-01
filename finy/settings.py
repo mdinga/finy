@@ -211,9 +211,6 @@ ADMIN_NOTIFICATION_EMAIL = config(
 )
 
 
-
-
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
@@ -230,7 +227,23 @@ USE_TZ = True
 
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(config("MEDIA_ROOT", default=str(BASE_DIR / "media")))
+
+TASK_FILE_MAX_SIZE_BYTES = config(
+    "TASK_FILE_MAX_SIZE_BYTES",
+    default=10 * 1024 * 1024,
+    cast=int,
+)
+TASK_FILE_MAX_FILES_PER_TASK = config(
+    "TASK_FILE_MAX_FILES_PER_TASK",
+    default=10,
+    cast=int,
+)
+TASK_FILE_MAX_STORAGE_PER_USER_BYTES = config(
+    "TASK_FILE_MAX_STORAGE_PER_USER_BYTES",
+    default=1024 * 1024 * 1024,
+    cast=int,
+)
 
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 

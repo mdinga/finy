@@ -9,6 +9,7 @@ const API = (window.FINY && window.FINY.api) ? window.FINY.api : {
   folders: '/api/folders/',
   spaces: '/api/spaces/',
   tasks: '/api/tasks/',
+  quickAdd: '/api/tasks/quick-add/',
   priority: '/api/tasks/priority/',
   today: '/api/tasks/today/',
   upcoming: '/api/tasks/upcoming/',
@@ -254,6 +255,7 @@ const els = {
   inboxBadge: document.getElementById('inbox-count-badge'),
   listTitle: document.getElementById('list-title'),
   listHelperText: document.getElementById('list-helper-text'),
+  contextQuickAdd: document.getElementById('context-quick-add'),
   globalSearchForm: document.getElementById('global-search-form'),
   globalSearchInput: document.getElementById('global-search-input'),
   clearSearchBtn: document.getElementById('clear-search-btn'),
@@ -272,6 +274,11 @@ const els = {
 let activeView = 'list';
 let calDays =7;
 let calStart = null;
+let myDaySort = 'due_date';
+let myDayFilterSpaceId = '';
+let calendarTasksByDay = {};
+let calendarRenderedStart = null;
+let calendarRenderedToday = null;
 
 const calEls = {
   listView: document.getElementById('list-view'),
@@ -280,12 +287,15 @@ const calEls = {
   calTitle: document.getElementById('calendar-title'),
   calPrev: document.getElementById('calPrev'),
   calNext: document.getElementById('calNext'),
-  calBack: document.getElementById('calBackToList')
+  calBack: document.getElementById('calBackToList'),
+  filter: document.getElementById('my-day-filter'),
+  sort: document.getElementById('my-day-sort')
 };
 
 window.addEventListener('DOMContentLoaded', init);
 
 async function init(){
+  loadMyDaySortPreference();
   wireButtons();
   await loadCategories();
   await resolveInbox();
@@ -332,6 +342,14 @@ function wireButtons(){
   calEls.calPrev?.addEventListener('click', () => shiftCalendar(-calDays));
   calEls.calNext?.addEventListener('click', () => shiftCalendar(calDays));
   calEls.calBack?.addEventListener('click', () => showListView());
+  calEls.filter?.addEventListener('change', () => {
+    myDayFilterSpaceId = calEls.filter.value || '';
+    renderCalendarSections();
+  });
+  calEls.sort?.addEventListener('change', () => {
+    setMyDaySortPreference(calEls.sort.value);
+    renderCalendarSections();
+  });
 
   els.newTaskForm?.addEventListener('submit', onCreateSubmit);
   els.globalSearchForm?.addEventListener('submit', onGlobalSearchSubmit);
@@ -347,7 +365,6 @@ async function showCalendar(){
 
   calStart = startOfDay(new Date());
   await renderCalendarRange();
-  jumpToWorkspaceMain();
 }
 
 function showListView(){
@@ -400,27 +417,128 @@ async function renderCalendarRange(){
     }
   });
 
-  Object.keys(byDay).forEach(k => {
-    byDay[k].sort((a,b) => {
-      const ac = a.completed ? 1 : 0;
-      const bc = b.completed ? 1 : 0;
-      if(ac !== bc) return ac - bc;
+  calendarTasksByDay = byDay;
+  calendarRenderedStart = start;
+  calendarRenderedToday = today;
+  populateMyDayFilterOptions();
+  renderCalendarSections();
+}
 
-      const ad = a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY;
-      const bd = b.due_date ? new Date(b.due_date).getTime() : Number.POSITIVE_INFINITY;
-      return ad - bd;
-    });
-  });
+function populateMyDayFilterOptions(){
+  if(!calEls.filter) return;
 
-  calEls.calList.innerHTML = '';
+  const tasks = Object.values(calendarTasksByDay).flat();
+  const options = getCalendarDaySpaceOptions(tasks);
+  const selectedSpace = (spacesCache || []).find(
+    space => String(space.id) === String(myDayFilterSpaceId)
+  );
 
-  for(let i = 0; i <= 6; i++){
-    const d = startOfDay(addDays(start, i));
-    const iso = toISODate(d);
-    const dayTasks = byDay[iso] || [];
-
-    calEls.calList.appendChild(buildCalendarSection(d, dayTasks, today));
+  if(
+    selectedSpace
+    && !options.some(space => String(space.id) === String(selectedSpace.id))
+  ){
+    options.push(selectedSpace);
+    options.sort(
+      (a, b) => String(a.name || '').localeCompare(String(b.name || ''))
+    );
   }
+
+  calEls.filter.innerHTML = `
+    <option value="">All spaces</option>
+    ${options.map(space => `
+      <option value="${space.id}" ${String(space.id) === String(myDayFilterSpaceId) ? 'selected' : ''}>
+        ${esc(space.name)}
+      </option>
+    `).join('')}
+  `;
+  calEls.filter.value = myDayFilterSpaceId;
+}
+
+function renderCalendarSections(){
+  if(!calEls.calList || !calendarRenderedStart || !calendarRenderedToday) return;
+  calEls.calList.innerHTML = '';
+  for(let i = 0; i <= 6; i++){
+    const d = startOfDay(addDays(calendarRenderedStart, i));
+    const iso = toISODate(d);
+    const dayTasks = calendarTasksByDay[iso] || [];
+
+    calEls.calList.appendChild(
+      buildCalendarSection(d, dayTasks, calendarRenderedToday)
+    );
+  }
+}
+
+function myDaySortStorageKey(){
+  const userId = String(window.FINY?.userId || '').trim();
+  return userId ? `finy.myDaySort.${userId}` : '';
+}
+
+function normaliseMyDaySort(value){
+  return value === 'quickest' || value === 'due_date'
+    ? value
+    : 'due_date';
+}
+
+function loadMyDaySortPreference(){
+  const key = myDaySortStorageKey();
+  let saved = 'due_date';
+  if(key){
+    try{
+      saved = window.localStorage.getItem(key) || 'due_date';
+    }catch(error){}
+  }
+  myDaySort = normaliseMyDaySort(saved);
+  if(calEls.sort) calEls.sort.value = myDaySort;
+}
+
+function setMyDaySortPreference(value){
+  myDaySort = normaliseMyDaySort(value);
+  if(calEls.sort) calEls.sort.value = myDaySort;
+
+  const key = myDaySortStorageKey();
+  if(key){
+    try{
+      window.localStorage.setItem(key, myDaySort);
+    }catch(error){}
+  }
+}
+
+function hasEstimate(task){
+  return task.estimated_minutes !== null
+    && task.estimated_minutes !== undefined
+    && task.estimated_minutes !== '';
+}
+
+function compareOptionalDueDate(a, b){
+  const aDue = a.due_date || '';
+  const bDue = b.due_date || '';
+  if(!!aDue !== !!bDue) return aDue ? -1 : 1;
+  if(aDue !== bDue) return aDue.localeCompare(bDue);
+  return 0;
+}
+
+function compareOptionalEstimate(a, b){
+  const aHasEstimate = hasEstimate(a);
+  const bHasEstimate = hasEstimate(b);
+  if(aHasEstimate !== bHasEstimate) return aHasEstimate ? -1 : 1;
+  if(aHasEstimate && Number(a.estimated_minutes) !== Number(b.estimated_minutes)){
+    return Number(a.estimated_minutes) - Number(b.estimated_minutes);
+  }
+  return 0;
+}
+
+function compareMyDayTasks(a, b, sortValue=myDaySort){
+  let comparison = 0;
+  if(sortValue === 'quickest'){
+    comparison = compareOptionalEstimate(a, b);
+    if(!comparison) comparison = compareOptionalDueDate(a, b);
+  }else{
+    comparison = compareOptionalDueDate(a, b);
+    if(!comparison) comparison = compareOptionalEstimate(a, b);
+  }
+
+  if(comparison) return comparison;
+  return Number(a.id) - Number(b.id);
 }
 
 function buildCalendarSectionLegacy(dateObj, tasks, today){
@@ -492,13 +610,17 @@ function buildCalendarSection(dateObj, tasks, today){
   body.className = 'calendar-section-body';
 
   const dayTasks = tasks || [];
-  const spaceOptions = getCalendarDaySpaceOptions(dayTasks);
-  let activeSpaceId = '';
+  const sectionDate = toISODate(dateObj);
+  const isToday = sectionDate === toISODate(today);
 
   function renderDayTasks(){
-    const filteredTasks = activeSpaceId
-      ? dayTasks.filter(t => Array.isArray(t.spaces) && t.spaces.map(String).includes(String(activeSpaceId)))
-      : dayTasks;
+    const filteredTasks = (myDayFilterSpaceId
+      ? dayTasks.filter(
+          t => Array.isArray(t.spaces)
+            && t.spaces.map(String).includes(String(myDayFilterSpaceId))
+        )
+      : dayTasks.slice()
+    ).sort((a, b) => compareMyDayTasks(a, b));
 
     const total = filteredTasks.reduce(
       (sum, t) => sum + (t.estimated_minutes ? Number(t.estimated_minutes) : 0),
@@ -510,48 +632,43 @@ function buildCalendarSection(dateObj, tasks, today){
         <h3 class="calendar-section-title">${esc(label)}</h3>
         <div class="calendar-section-sub">${filteredTasks.length} tasks, ${esc(fmtMinutesHuman(total))}</div>
       </div>
-      ${spaceOptions.length ? `
-        <div class="calendar-day-filter">
-          <label class="calendar-day-filter-label" for="calendar-space-${toISODate(dateObj)}">Filter by space</label>
-          <select id="calendar-space-${toISODate(dateObj)}" class="form-select form-select-sm calendar-space-filter">
-            <option value="">All spaces</option>
-            ${spaceOptions.map(space => `
-              <option value="${space.id}" ${String(space.id) === String(activeSpaceId) ? 'selected' : ''}>
-                ${esc(space.name)}
-              </option>
-            `).join('')}
-          </select>
-          <button type="button" class="btn btn-plain btn-sm calendar-space-clear ${activeSpaceId ? '' : 'd-none'}">
-            Clear
-          </button>
-        </div>
-      ` : ''}
     `;
 
     body.innerHTML = '';
 
     if(!filteredTasks.length){
-      body.innerHTML = activeSpaceId
+      body.innerHTML = myDayFilterSpaceId
         ? `<div class="text-muted small">No tasks for this space.</div>`
         : `<div class="text-muted small">No planned tasks.</div>`;
     }else{
       filteredTasks.forEach(t => body.appendChild(buildTaskCard(t)));
     }
 
-    heading.querySelector('.calendar-space-filter')?.addEventListener('change', function(){
-      activeSpaceId = this.value || '';
-      renderDayTasks();
-    });
-
-    heading.querySelector('.calendar-space-clear')?.addEventListener('click', function(){
-      activeSpaceId = '';
-      renderDayTasks();
-    });
   }
 
   renderDayTasks();
 
   section.appendChild(heading);
+  section.appendChild(buildQuickAddElement({
+    id: `calendar-${sectionDate}`,
+    label: `Add a task for ${label}`,
+    placeholder: isToday
+      ? 'Add a task for today'
+      : `Add a task for ${fmtUIDate(dateObj)}`,
+    payload: {
+      context_type: isToday ? 'my_day' : 'date',
+      planned_date: sectionDate,
+    },
+    onCreated: async task => {
+      dayTasks.push(task);
+      renderDayTasks();
+      await renderSidebar();
+      await refreshWorkspaceAchievements();
+      return myDayFilterSpaceId
+        ? 'Task added. Clear the space filter to see it.'
+        : '';
+    },
+  }));
   section.appendChild(body);
   return section;
 }
@@ -927,6 +1044,120 @@ function populateTaskFilterControls(){
 
 
 /* New task */
+function quickAddRequestId(){
+  if(window.crypto && typeof window.crypto.randomUUID === 'function'){
+    return window.crypto.randomUUID().replace(/-/g, '');
+  }
+  return `qa${Date.now()}${Math.random().toString(36).slice(2)}`;
+}
+
+function buildQuickAddElement({ id, label, placeholder, payload, onCreated }){
+  const wrap = document.createElement('div');
+  wrap.className = 'context-quick-add';
+  wrap.innerHTML = `
+    <form class="context-quick-add-form" novalidate>
+      <label class="visually-hidden" for="quick-add-${esc(id)}">${esc(label)}</label>
+      <input
+        id="quick-add-${esc(id)}"
+        class="form-control form-control-sm context-quick-add-input"
+        type="text"
+        maxlength="255"
+        autocomplete="off"
+        placeholder="${esc(placeholder)}"
+      >
+      <button class="btn btn-plain btn-sm context-quick-add-button" type="submit">Add</button>
+    </form>
+    <div class="context-quick-add-feedback small" role="status" aria-live="polite"></div>
+  `;
+
+  const form = wrap.querySelector('form');
+  const input = wrap.querySelector('input');
+  const button = wrap.querySelector('button');
+  const feedback = wrap.querySelector('.context-quick-add-feedback');
+
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if(form.dataset.submitting === 'true') return;
+
+    const title = (input.value || '').trim();
+    if(!title) return;
+
+    form.dataset.submitting = 'true';
+    input.disabled = true;
+    button.disabled = true;
+    feedback.textContent = '';
+    feedback.classList.remove('text-danger', 'text-success');
+
+    try{
+      const task = await apiSend(API.quickAdd, 'POST', {
+        ...payload,
+        title,
+        client_request_id: quickAddRequestId(),
+      });
+      input.value = '';
+      const successMessage = await onCreated(task);
+      const currentInput = document.getElementById(`quick-add-${id}`);
+      const currentFeedback = currentInput
+        ?.closest('.context-quick-add')
+        ?.querySelector('.context-quick-add-feedback');
+      if(currentFeedback && successMessage){
+        currentFeedback.textContent = successMessage;
+        currentFeedback.classList.add('text-success');
+      }
+      currentInput?.focus();
+    }catch(error){
+      feedback.textContent = 'Could not add this task. Please try again.';
+      feedback.classList.add('text-danger');
+    }finally{
+      form.dataset.submitting = 'false';
+      input.disabled = false;
+      button.disabled = false;
+    }
+  });
+
+  return wrap;
+}
+
+function renderContextQuickAdd(){
+  if(!els.contextQuickAdd) return;
+  els.contextQuickAdd.innerHTML = '';
+
+  let config = null;
+  if(activeFilter?.type === 'inbox'){
+    config = {
+      id: 'inbox',
+      label: 'Add a task to Inbox',
+      placeholder: 'Add a task to Inbox',
+      payload: { context_type: 'inbox' },
+    };
+  }else if(activeFilter?.type === 'folder'){
+    config = {
+      id: `folder-${activeFilter.id}`,
+      label: `Add a task to ${activeFilter.name}`,
+      placeholder: `Add a task to ${activeFilter.name}`,
+      payload: { context_type: 'folder', folder_id: activeFilter.id },
+    };
+  }else if(activeFilter?.type === 'space'){
+    config = {
+      id: `space-${activeFilter.id}`,
+      label: `Add a task to ${activeFilter.name}`,
+      placeholder: `Add a task to ${activeFilter.name}`,
+      payload: { context_type: 'space', space_id: activeFilter.id },
+    };
+  }
+
+  if(!config) return;
+
+  els.contextQuickAdd.appendChild(buildQuickAddElement({
+    ...config,
+    onCreated: async () => {
+      await renderListByFilter();
+      await refreshWorkspaceAchievements();
+      return '';
+    },
+  }));
+}
+
 async function onCreateSubmit(e){
   e.preventDefault();
   const title = (els.newTaskTitle.value || '').trim();
@@ -1132,6 +1363,7 @@ async function renderListByFilter(){
     els.listHelperText.textContent = getHelperTextForFilter();
   }
 
+  renderContextQuickAdd();
   updateTaskFilterBar();
 
   let res;
@@ -1329,13 +1561,26 @@ function buildDetailsPanel(t){
 
   const folderId = t.folder ? String(t.folder) : '';
   const selectedSpaces = Array.isArray(t.spaces) ? t.spaces.map(x => String(x)) : [];
+  const outstandingNextActionCount = Number(t.outstanding_next_action_count) || 0;
+  const notesCount = Number(t.notes_count) || 0;
+  const fileCount = Number(t.file_count) || 0;
 
   return `
     <div class="border-top pt-3">
       <div class="task-tabs-bar">
       <button class="btn btn-plain btn-sm tab-btn active" onclick="showTab(${t.id}, 'details')">Details</button>
-      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'actions')">Next Actions</button>
-      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'notes')">Notes</button>
+      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'actions')">
+        <span>Next Actions</span>
+        <span id="actions-count-${t.id}" class="task-content-count${outstandingNextActionCount ? '' : ' d-none'}" aria-label="${outstandingNextActionCount} outstanding next actions">${outstandingNextActionCount || ''}</span>
+      </button>
+      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'notes')">
+        <span>Notes</span>
+        <span id="notes-count-${t.id}" class="task-content-count${notesCount ? '' : ' d-none'}" aria-label="${notesCount} saved notes">${notesCount || ''}</span>
+      </button>
+      <button class="btn btn-plain btn-sm tab-btn" onclick="showTab(${t.id}, 'files')">
+        <span>Files</span>
+        <span id="files-count-${t.id}" class="task-content-count${fileCount ? '' : ' d-none'}" aria-label="${fileCount} stored files">${fileCount || ''}</span>
+      </button>
       </div>
 
       <div id="tab-${t.id}-details" class="tab-panel show">
@@ -1421,6 +1666,13 @@ function buildDetailsPanel(t){
           <button class="btn btn-plain btn-sm" onclick="addNote(${t.id})">Add</button>
         </div>
         <div id="notes-list-${t.id}"></div>
+        ${buildTaskActionButtons(t.id)}
+      </div>
+
+      <div id="tab-${t.id}-files" class="tab-panel">
+        <div id="files-panel-${t.id}" aria-live="polite">
+          <div class="text-muted small">Loading files...</div>
+        </div>
         ${buildTaskActionButtons(t.id)}
       </div>
 
@@ -1518,12 +1770,13 @@ function showTab(taskId, tab){
   if(panel) panel.classList.add('show');
 
   const buttons = root.querySelectorAll('.tab-btn');
-  const tabMap = ['details','actions','notes'];
+  const tabMap = ['details','actions','notes','files'];
   const idx = tabMap.indexOf(tab);
   if(idx >= 0 && buttons[idx]) buttons[idx].classList.add('active');
 
   if(tab === 'notes') loadNotes(taskId);
   if(tab === 'actions') loadActions(taskId);
+  if(tab === 'files') loadFiles(taskId);
 }
 window.showTab = showTab;
 
@@ -1685,6 +1938,131 @@ window.deleteTask = deleteTask;
 
 
 /* Notes */
+function updateTaskContentCount(taskId, section, count){
+  const badge = document.getElementById(`${section}-count-${taskId}`);
+  if(!badge) return;
+
+  const value = Math.max(0, Number(count) || 0);
+  badge.textContent = value ? String(value) : '';
+  badge.classList.toggle('d-none', value === 0);
+  const labels = {
+    actions: `${value} outstanding next actions`,
+    notes: `${value} saved notes`,
+    files: `${value} stored files`,
+  };
+  badge.setAttribute('aria-label', labels[section] || String(value));
+}
+
+function formatFileSize(bytes){
+  const value = Number(bytes) || 0;
+  if(value < 1024) return `${value} B`;
+  if(value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function loadFiles(taskId){
+  const panel = document.getElementById(`files-panel-${taskId}`);
+  if(!panel) return;
+
+  panel.innerHTML = '<div class="text-muted small">Loading files...</div>';
+  try{
+    const result = await apiGet(`${API.tasks}${taskId}/files/`);
+    updateTaskContentCount(taskId, 'files', result.count);
+
+    panel.innerHTML = `
+      <form class="task-file-upload-form mb-3" onsubmit="event.preventDefault(); uploadTaskFile('${taskId}', this)">
+        <label class="form-label small fw-semibold" for="task-file-${taskId}">Upload a file</label>
+        <div class="d-flex gap-2 task-file-upload-row">
+          <input
+            id="task-file-${taskId}"
+            name="file"
+            type="file"
+            class="form-control form-control-sm"
+            accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.docx,.xlsx"
+          >
+          <button class="btn btn-plain btn-sm" type="submit">Upload</button>
+        </div>
+        <div class="task-file-error text-danger small mt-1" role="alert"></div>
+      </form>
+      <div class="task-files-list"></div>
+    `;
+
+    const list = panel.querySelector('.task-files-list');
+    const files = result.files || [];
+    if(!files.length){
+      list.innerHTML = '<div class="text-muted small">No files yet.</div>';
+      return;
+    }
+
+    files.forEach(file => {
+      const row = document.createElement('div');
+      row.className = 'task-file-row';
+      row.innerHTML = `
+        <div class="task-file-details">
+          <div class="task-file-name" title="${esc(file.filename || '')}">${esc(file.filename || 'File')}</div>
+          <div class="small text-muted">
+            ${esc(formatFileSize(file.size))}
+            ${file.uploaded_at ? ` · ${esc(fmtUIDateTimeFromISO(file.uploaded_at))}` : ''}
+          </div>
+        </div>
+        <div class="task-file-actions">
+          <a class="btn btn-plain btn-sm" href="${esc(file.download_url)}?inline=true" target="_blank" rel="noopener">Open</a>
+          <a class="btn btn-plain btn-sm" href="${esc(file.download_url)}">Download</a>
+          <button class="btn btn-plain btn-sm text-danger" type="button" onclick="deleteTaskFile('${taskId}', '${file.id}')">Delete</button>
+        </div>
+      `;
+      list.appendChild(row);
+    });
+  }catch(error){
+    panel.innerHTML = '<div class="text-danger small">Could not load files. Please try again.</div>';
+  }
+}
+
+async function uploadTaskFile(taskId, form){
+  if(form.dataset.uploading === 'true') return;
+  const input = form.querySelector('input[type="file"]');
+  const button = form.querySelector('button[type="submit"]');
+  const error = form.querySelector('.task-file-error');
+  if(!input?.files?.length) return;
+
+  form.dataset.uploading = 'true';
+  input.disabled = true;
+  button.disabled = true;
+  button.textContent = 'Uploading...';
+  error.textContent = '';
+
+  try{
+    const data = new FormData();
+    data.append('file', input.files[0]);
+    await apiSend(`${API.tasks}${taskId}/files/`, 'POST', data, true);
+    await loadFiles(taskId);
+  }catch(uploadError){
+    let message = 'Could not upload this file. Check its type and size, then try again.';
+    const raw = String(uploadError?.message || '');
+    const jsonStart = raw.indexOf('{');
+    if(jsonStart >= 0){
+      try{
+        const details = JSON.parse(raw.slice(jsonStart));
+        const fileError = Array.isArray(details.file) ? details.file[0] : details.file;
+        if(fileError) message = String(fileError);
+      }catch(parseError){}
+    }
+    error.textContent = message;
+    input.disabled = false;
+    button.disabled = false;
+    button.textContent = 'Upload';
+    form.dataset.uploading = 'false';
+  }
+}
+window.uploadTaskFile = uploadTaskFile;
+
+async function deleteTaskFile(taskId, fileId){
+  if(!confirm('Delete this file permanently?')) return;
+  await apiSend(`${API.tasks}${taskId}/files/${fileId}/`, 'DELETE', null);
+  await loadFiles(taskId);
+}
+window.deleteTaskFile = deleteTaskFile;
+
 async function loadNotes(taskId){
   const listEl = document.getElementById('notes-list-' + taskId);
   if(!listEl) return;
@@ -1692,6 +2070,7 @@ async function loadNotes(taskId){
 
   const res = await apiGet(`${API.tasks}${taskId}/notes/`);
   const notes = res.results || res || [];
+  updateTaskContentCount(taskId, 'notes', notes.length);
 
   if(!notes.length){
     listEl.innerHTML = `<div class="text-muted small">No notes yet.</div>`;
@@ -1779,6 +2158,11 @@ async function loadActions(taskId){
   listEl.innerHTML = '';
   const res = await apiGet(`${API.tasks}${taskId}/actions/`);
   const items = res.results || res || [];
+  updateTaskContentCount(
+    taskId,
+    'actions',
+    items.filter(item => !(item.completed ?? item.done)).length
+  );
 
   if(!items.length){
     listEl.innerHTML = `<li class="text-muted small">No next actions yet.</li>`;

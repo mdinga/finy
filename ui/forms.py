@@ -155,7 +155,11 @@ class AttachmentForm(forms.ModelForm):
         model = Attachment
         fields = ["image"]
         widgets = {
-            "image": forms.ClearableFileInput(attrs={"accept": "image/*"})
+            "image": forms.ClearableFileInput(
+                attrs={
+                    "accept": ".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt,.csv,.docx,.xlsx"
+                }
+            )
         }
 
 from django import forms

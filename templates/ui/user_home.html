@@ -43,10 +43,12 @@
 
   <script>
     window.FINY = {
+      userId: "{{ request.user.pk }}",
       api: {
         folders: "/api/folders/",
         spaces: "/api/spaces/",
         tasks: "/api/tasks/",
+        quickAdd: "/api/tasks/quick-add/",
         priority: "/api/tasks/priority/",
         today: "/api/tasks/today/",
         upcoming: "/api/tasks/upcoming/",

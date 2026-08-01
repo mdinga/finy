@@ -3,8 +3,14 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 import uuid
+from pathlib import Path
 
 User = settings.AUTH_USER_MODEL
+
+
+def attachment_upload_to(instance, filename):
+    extension = Path(filename).suffix.lower()
+    return f"attachments/{timezone.now():%Y/%m}/{uuid.uuid4().hex}{extension}"
 
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -157,7 +163,10 @@ class TaskNote(TimeStampedModel):
 
 class Attachment(TimeStampedModel):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='attachments')
-    image = models.ImageField(upload_to='attachments/%Y/%m/')
+    image = models.FileField(upload_to=attachment_upload_to)
+    original_filename = models.CharField(max_length=255, blank=True)
+    file_size = models.PositiveBigIntegerField(default=0)
+    content_type = models.CharField(max_length=100, blank=True)
 
 class TimeLog(TimeStampedModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='timelogs')

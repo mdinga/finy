@@ -168,6 +168,34 @@ Use the actual Gunicorn unit, project directory, virtual-environment path, and
 environment-file location from the production server if they differ from these
 examples.
 
+## Protected task-file storage
+
+Task attachments are entitlement-protected and are delivered only through
+authenticated Django task-file routes. Production Nginx must **not** expose `MEDIA_URL` or
+`MEDIA_ROOT` as a public alias. In particular, do not add a public
+`location /media/` block.
+
+Configure `MEDIA_ROOT` on persistent storage that is writable by the Gunicorn
+service account and include it in encrypted, access-controlled backups. The
+application streams authorised downloads, so Nginx must allow those application
+responses and should retain its normal request-body limit above the configured
+maximum individual file size.
+
+Optional limits, expressed in bytes/count, are:
+
+```text
+MEDIA_ROOT=/srv/finy/media
+TASK_FILE_MAX_SIZE_BYTES=10485760
+TASK_FILE_MAX_FILES_PER_TASK=10
+TASK_FILE_MAX_STORAGE_PER_USER_BYTES=1073741824
+```
+
+If Nginx sets `client_max_body_size`, configure it slightly above
+`TASK_FILE_MAX_SIZE_BYTES` to account for multipart overhead. No public or signed
+storage URL is required by this implementation. Task-file operations are
+available to every authenticated user; authentication, task ownership, and
+technical storage limits remain enforced.
+
 ## Backups
 
 Create automated, encrypted, off-host PostgreSQL backups with retention. At a

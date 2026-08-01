@@ -688,6 +688,131 @@ body.workspace-page main.container-fluid {
   border-bottom: 1px solid #edf3e5;
 }
 
+.task-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf3e5;
+}
+
+.task-file-details {
+  min-width: 0;
+}
+
+.task-file-name {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-file-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  .task-file-upload-row,
+  .task-file-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .task-file-actions {
+    flex-wrap: wrap;
+  }
+}
+
+.calendar-toolbar-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.my-day-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.my-day-control label {
+  white-space: nowrap;
+}
+
+#my-day-filter,
+#my-day-sort {
+  width: auto;
+  min-width: 140px;
+}
+
+.context-quick-add {
+  margin: 0 0 12px;
+}
+
+.context-quick-add-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-quick-add-input {
+  max-width: 440px;
+  border-color: #dfead3;
+  background: #fbfdf8;
+}
+
+.context-quick-add-input:focus {
+  border-color: #98c03c;
+  box-shadow: 0 0 0 0.2rem rgba(152, 192, 60, 0.2);
+}
+
+.context-quick-add-feedback {
+  min-height: 1.25rem;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .context-quick-add-form {
+    width: 100%;
+  }
+
+  .context-quick-add-input {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+.task-tabs-bar .tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.task-content-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #003204;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tab-btn.active .task-content-count {
+  background: #003204;
+  color: #ffffff;
+}
+
 .calendar-section-heading-main {
   min-width: 0;
 }
@@ -725,6 +850,27 @@ body.workspace-page main.container-fluid {
 }
 
 @media (max-width: 640px) {
+  #calendar-view > .d-flex:first-child {
+    align-items: stretch !important;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .calendar-toolbar-controls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .my-day-control {
+    width: 100%;
+  }
+
+  #my-day-filter,
+  #my-day-sort {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   .calendar-section-header {
     align-items: stretch;
     flex-direction: column;

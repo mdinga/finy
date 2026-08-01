@@ -77,8 +77,8 @@ class SubscriptionLifecycleTests(TestCase):
     def test_past_due_user_retains_basic_entitlements_during_grace(self):
         self.enter_grace()
         self.assertEqual(self.subscription.plan.slug, "basic")
-        self.assertEqual(get_folder_limit(self.user), 25)
-        self.assertEqual(get_space_limit(self.user), 15)
+        self.assertIsNone(get_folder_limit(self.user))
+        self.assertIsNone(get_space_limit(self.user))
 
     def test_reprocessing_during_grace_is_idempotent(self):
         self.enter_grace()
@@ -144,7 +144,7 @@ class SubscriptionLifecycleTests(TestCase):
             before,
         )
 
-    def test_over_limit_downgraded_user_cannot_create_folders_or_spaces(self):
+    def test_downgraded_user_keeps_unrestricted_folder_and_space_creation(self):
         self.create_user_items(folder_count=6, space_count=6)
         self.enter_grace()
         self.process(self.subscription.grace_period_end + timedelta(seconds=1))
@@ -156,12 +156,12 @@ class SubscriptionLifecycleTests(TestCase):
             {"name": "blocked_space", "category": self.category.pk},
         )
 
-        self.assertEqual(folder_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(space_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Folder.objects.filter(user=self.user, is_inbox=False).count(), 6)
-        self.assertEqual(Space.objects.filter(user=self.user, is_system=False).count(), 6)
+        self.assertEqual(folder_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(space_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Folder.objects.filter(user=self.user, is_inbox=False).count(), 7)
+        self.assertEqual(Space.objects.filter(user=self.user, is_system=False).count(), 7)
 
-    def test_below_limit_downgraded_user_can_create_within_free_limits(self):
+    def test_downgraded_user_can_continue_creating_beyond_stored_free_values(self):
         self.create_user_items(folder_count=3, space_count=3)
         self.enter_grace()
         self.process(self.subscription.grace_period_end + timedelta(seconds=1))
@@ -180,14 +180,14 @@ class SubscriptionLifecycleTests(TestCase):
 
         self.assertEqual(
             self.client.post(reverse("api:folder-list"), {"name": "Folder six"}).status_code,
-            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_201_CREATED,
         )
         self.assertEqual(
             self.client.post(
                 reverse("api:space-list"),
                 {"name": "space_six", "category": self.category.pk},
             ).status_code,
-            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_201_CREATED,
         )
 
     def test_processing_one_user_does_not_modify_another(self):
@@ -269,16 +269,16 @@ class SubscriptionLifecycleTests(TestCase):
         self.assertEqual(
             self.client.post(
                 reverse("api:folder-list"),
-                {"name": "Blocked after cancellation"},
+                {"name": "Allowed after cancellation"},
             ).status_code,
-            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_201_CREATED,
         )
         self.assertEqual(
             self.client.post(
                 reverse("api:space-list"),
-                {"name": "blocked_after_cancel", "category": self.category.pk},
+                {"name": "allowed_after_cancel", "category": self.category.pk},
             ).status_code,
-            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_201_CREATED,
         )
 
     def test_missing_period_end_is_reported_without_mutation(self):

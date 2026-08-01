@@ -1,7 +1,12 @@
 from datetime import date, datetime
 from calendar import monthrange
+import hashlib
+
+from django.core.cache import cache
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Count, Sum
+from django.http import FileResponse
+from django.utils.http import content_disposition_header
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework import viewsets, permissions, filters, status
@@ -16,7 +21,7 @@ from core.repeating import create_next_repeating_task
 from .serializers import TaskNoteSerializer
 from core.models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog
 from journeys.models import UserAchievement
-from .serializers import FolderSerializer, SpaceCategorySerializer, SpaceSerializer, TaskSerializer, SubtaskSerializer, AttachmentSerializer, TimeLogSerializer
+from .serializers import ContextualQuickAddSerializer, FolderSerializer, SpaceCategorySerializer, SpaceSerializer, TaskSerializer, SubtaskSerializer, AttachmentSerializer, TimeLogSerializer
 from journeys.services import (
     get_highest_ranking_user_achievement,
     update_folder_journey_progress,
@@ -31,7 +36,7 @@ from journeys.services import (
 )
 
 from .filters import TaskFilter
-from subscriptions.services import can_create_folder, can_create_space
+from core.task_files import validate_task_file, validate_task_file_limits
 
 User = get_user_model()
 
@@ -74,8 +79,6 @@ class FolderViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             User.objects.select_for_update().get(pk=self.request.user.pk)
-            if not can_create_folder(self.request.user):
-                raise ValidationError({"detail": "Your plan's folder limit has been reached."})
             folder = serializer.save(user=self.request.user)
             update_folder_journey_progress(self.request.user)
             return folder
@@ -104,8 +107,6 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
     def perform_create(self, serializer):
         with transaction.atomic():
             User.objects.select_for_update().get(pk=self.request.user.pk)
-            if not can_create_space(self.request.user):
-                raise ValidationError({"detail": "Your plan's space limit has been reached."})
             space = serializer.save(user=self.request.user)
             update_space_journey_progress(self.request.user)
             return space
@@ -125,12 +126,214 @@ class SpaceViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
 
 
 class TaskViewSet(OwnerQuerysetMixin, viewsets.ModelViewSet):
-    queryset = Task.objects.select_related('folder').prefetch_related('spaces')
+    queryset = (
+        Task.objects
+        .select_related('folder')
+        .prefetch_related('spaces', 'attachments')
+        .annotate(
+            outstanding_next_action_count=Count(
+                'subtasks',
+                filter=Q(subtasks__completed=False),
+                distinct=True,
+            ),
+            notes_count=Count('notes', distinct=True),
+            file_count=Count('attachments', distinct=True),
+        )
+    )
     serializer_class = TaskSerializer
     filterset_class = TaskFilter
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'folder__name', 'spaces__name', 'subtasks__title']
     ordering_fields = ['planned_date', 'due_date', 'created_at', 'estimated_minutes']
+
+    @action(detail=True, methods=["get", "post"], url_path="files")
+    def files(self, request, pk=None):
+        task = self.get_object()
+        file_count = task.attachments.count()
+
+        if request.method.lower() == "get":
+            files = task.attachments.all().order_by("created_at")
+            return Response(
+                {
+                    "count": file_count,
+                    "files": AttachmentSerializer(
+                        files,
+                        many=True,
+                        context=self.get_serializer_context(),
+                    ).data,
+                }
+            )
+
+        uploaded_file = request.FILES.get("file")
+        if uploaded_file is None:
+            raise ValidationError({"file": "Select a file to upload."})
+
+        try:
+            metadata = validate_task_file(uploaded_file)
+        except Exception as exc:
+            if hasattr(exc, "messages"):
+                raise ValidationError({"file": exc.messages})
+            raise
+
+        attachment = Attachment(
+            task=task,
+            image=uploaded_file,
+            **metadata,
+        )
+        try:
+            with transaction.atomic():
+                User.objects.select_for_update().get(pk=request.user.pk)
+                validate_task_file_limits(task, metadata["file_size"])
+                attachment.save()
+        except Exception as exc:
+            if attachment.image and attachment.image.name:
+                attachment.image.storage.delete(attachment.image.name)
+            if hasattr(exc, "messages"):
+                raise ValidationError({"file": exc.messages})
+            raise
+
+        return Response(
+            AttachmentSerializer(
+                attachment,
+                context=self.get_serializer_context(),
+            ).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path=r"files/(?P<file_id>[^/.]+)/download",
+    )
+    def file_download(self, request, pk=None, file_id=None):
+        task = self.get_object()
+
+        try:
+            attachment = task.attachments.get(pk=file_id)
+        except Attachment.DoesNotExist:
+            return Response({"detail": "File not found."}, status=404)
+
+        inline_requested = (
+            request.query_params.get("inline", "").strip().lower()
+            in {"1", "true", "yes"}
+        )
+        inline_safe_types = {"application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"}
+        as_attachment = not (
+            inline_requested and attachment.content_type in inline_safe_types
+        )
+        filename = attachment.original_filename or f"file-{attachment.pk}"
+
+        try:
+            attachment.image.open("rb")
+        except (FileNotFoundError, OSError, ValueError):
+            return Response({"detail": "File is unavailable."}, status=404)
+
+        response = FileResponse(
+            attachment.image,
+            as_attachment=as_attachment,
+            filename=filename,
+            content_type=attachment.content_type or "application/octet-stream",
+        )
+        response["Content-Disposition"] = content_disposition_header(
+            as_attachment,
+            filename,
+        )
+        response["X-Content-Type-Options"] = "nosniff"
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+    @action(
+        detail=True,
+        methods=["delete"],
+        url_path=r"files/(?P<file_id>[^/.]+)",
+    )
+    def file_detail(self, request, pk=None, file_id=None):
+        task = self.get_object()
+
+        try:
+            attachment = task.attachments.get(pk=file_id)
+        except Attachment.DoesNotExist:
+            return Response({"detail": "File not found."}, status=404)
+
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"], url_path="quick-add")
+    def quick_add(self, request):
+        quick_add_serializer = ContextualQuickAddSerializer(data=request.data)
+        quick_add_serializer.is_valid(raise_exception=True)
+        data = quick_add_serializer.validated_data
+
+        request_id = data.get("client_request_id")
+        cache_key = None
+        if request_id:
+            request_hash = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
+            cache_key = f"task-quick-add:{request.user.pk}:{request_hash}"
+            cached_response = cache.get(cache_key)
+            if isinstance(cached_response, dict):
+                return Response(cached_response)
+            if not cache.add(cache_key, "pending", timeout=30):
+                return Response(
+                    {"detail": "This task creation request is already in progress."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        context_type = data["context_type"]
+        payload = {"title": data["title"]}
+
+        try:
+            if context_type == ContextualQuickAddSerializer.CONTEXT_FOLDER:
+                folder = Folder.objects.filter(
+                    user=request.user,
+                    pk=data["folder_id"],
+                ).first()
+                if folder is None:
+                    raise ValidationError({"folder_id": "Folder not found."})
+                payload["folder"] = folder.pk
+
+            elif context_type == ContextualQuickAddSerializer.CONTEXT_SPACE:
+                space = Space.objects.filter(
+                    user=request.user,
+                    pk=data["space_id"],
+                ).first()
+                if space is None:
+                    raise ValidationError({"space_id": "Space not found."})
+                payload["spaces"] = [space.pk]
+
+            elif context_type == ContextualQuickAddSerializer.CONTEXT_INBOX:
+                inbox = Folder.objects.filter(
+                    user=request.user,
+                    is_inbox=True,
+                ).first()
+                if inbox is None:
+                    raise ValidationError({"context_type": "Inbox not found."})
+                payload["folder"] = inbox.pk
+
+            elif context_type == ContextualQuickAddSerializer.CONTEXT_MY_DAY:
+                planned_date = data["planned_date"]
+                if planned_date != timezone.localdate():
+                    raise ValidationError(
+                        {"planned_date": "My Day must use today's local date."}
+                    )
+                payload["planned_date"] = planned_date
+
+            else:
+                payload["planned_date"] = data["planned_date"]
+
+            task_serializer = self.get_serializer(data=payload)
+            task_serializer.is_valid(raise_exception=True)
+            task = task_serializer.save()
+            created_task = self.get_queryset().get(pk=task.pk)
+            response_data = self.get_serializer(created_task).data
+
+            if cache_key:
+                cache.set(cache_key, response_data, timeout=300)
+
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        except Exception:
+            if cache_key:
+                cache.delete(cache_key)
+            raise
 
     @action(detail=True, methods=["get", "post"], url_path="notes")
     def notes(self, request, pk=None):

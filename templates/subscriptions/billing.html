@@ -70,8 +70,8 @@
           </dl>
 
           {% if billing_state == "free" %}
-            <p>You’re currently using Finy Free. Upgrade to Basic for higher folder and space limits and additional features.</p>
-            <p class="text-muted">Increase your folder and space limits and unlock premium features.</p>
+            <p>You are currently using Finy Free. All current product features are available without upgrading.</p>
+            <p class="text-muted">Your stored account plan does not restrict feature access.</p>
             <form method="post" action="{% url 'subscriptions:basic_checkout' %}">
               {% csrf_token %}<button class="btn workspace-btn-lime" type="submit">Upgrade to Basic</button>
             </form>
@@ -89,14 +89,14 @@
             {% if cancellation_available %}<a class="btn btn-outline-danger" href="{% url 'subscriptions:subscription_cancel_confirmation' %}">Cancel subscription</a>{% endif %}
           {% elif billing_state == "cancellation_scheduled" %}
             {% if subscription.current_period_end %}
-              <p>Future PayFast subscription debits have stopped. Your Basic access remains available until {{ subscription.current_period_end|date:"d F Y" }}. After that, your account will move to Free.</p>
-              <p><strong>Access until:</strong> {{ subscription.current_period_end|date:"d F Y" }}</p>
+              <p>Future PayFast subscription debits have stopped. Your Basic subscription remains current until {{ subscription.current_period_end|date:"d F Y" }}. After that, your stored account plan will move to Free without restricting features.</p>
+              <p><strong>Subscription until:</strong> {{ subscription.current_period_end|date:"d F Y" }}</p>
             {% else %}<p>Future PayFast subscription debits have stopped. Access-until date not available.</p>{% endif %}
             {% if subscription.cancelled_at %}<p><strong>Cancellation requested:</strong> {{ subscription.cancelled_at|date:"d F Y" }}</p>
             {% else %}<p>Cancellation request date not available.</p>{% endif %}
-            <p>Your Finy data will not be deleted. If you are above the Free limits, you will keep your existing data but may be unable to create additional folders or spaces.</p>
+            <p>Your Finy data will not be deleted, and feature access will not be affected by the stored plan change.</p>
           {% elif billing_state == "providerless_basic" %}
-            <p>Your Basic access is active. Online subscription management is not available for this account.</p>
+            <p>Your Basic subscription is active. Online subscription management is not available for this account.</p>
           {% else %}
             <p>Your paid subscription is no longer active.</p>
           {% endif %}

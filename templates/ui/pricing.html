@@ -67,18 +67,13 @@
 
               <ul class="pricing-features">
                 <li>Unlimited tasks</li>
-                <li>
-                  {% if plan.unlimited_folders %}Unlimited folders{% else %}{{ plan.maximum_folders }} user-created folders{% endif %}
-                </li>
-                <li>
-                  {% if plan.unlimited_spaces %}Unlimited spaces{% else %}{{ plan.maximum_spaces }} user-created spaces{% endif %}
-                </li>
+                <li>Unlimited folders</li>
+                <li>Unlimited spaces</li>
                 <li>Journeys and mission videos</li>
                 <li>Achievements</li>
                 <li>Calendar and review features</li>
-                {% if plan.email_capture_enabled %}<li>Email capture when launched</li>{% endif %}
-                {% if plan.ai_enabled %}<li>AI features when launched</li><li>Advanced analytics when launched</li>{% endif %}
-                {% if plan.monthly_price %}<li>Selected future premium features</li>{% endif %}
+                <li>Task file attachments for all users</li>
+                <li>Future features available to all users when launched</li>
               </ul>
 
               <div class="pricing-action">

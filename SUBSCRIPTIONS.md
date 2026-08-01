@@ -5,16 +5,17 @@ recurring-payment integration supports explicitly selected PayFast Sandbox or Li
 
 ## Plans
 
-| Plan | Monthly price | Folders | Spaces | Email capture | AI | Available |
-| --- | ---: | ---: | ---: | --- | --- | --- |
-| Free | R0 | 5 | 5 | No | No | Yes |
-| Basic | R89 | 25 | 15 | Yes | No | Yes |
-| Pro | R120 | Unlimited | Unlimited | Yes | Yes | No (coming soon) |
+| Plan | Monthly price | Stored folder value | Stored space value | Available |
+| --- | ---: | ---: | ---: | --- |
+| Free | R0 | 5 | 5 | Yes |
+| Basic | R89 | 25 | 15 | Yes |
+| Pro | R120 | Unlimited | Unlimited | No (coming soon) |
 
-The protected Inbox and protected `waiting_for` space do not count toward plan limits.
-Limits represent user-created folders and spaces in addition to those system defaults.
-Tasks remain unlimited on every plan. Email capture and AI are entitlements only; the
-features are not implemented by this foundation.
+The folder, space, and feature fields remain stored for historical account and billing
+data, but they do not restrict product access. Every authenticated user can use all
+implemented features, including unlimited folders, spaces, tasks, and task files.
+Future features default to all authenticated users when implemented unless an
+explicit later product decision introduces restrictions.
 
 Free users have a `Subscription` row with status `free`, no provider, and no billing
 period. Paid lifecycle statuses are `active`, `past_due`, `cancelled`, and `expired`.
@@ -26,12 +27,12 @@ and assigns active Basic membership to existing users without membership data. I
 not overwrite an existing membership. A user creation signal assigns Free membership
 to new users, including users created by registration, admin, or `create_user()`.
 
-## Entitlements and limits
+## Feature access
 
-All plan policy is exposed through `subscriptions/services.py`. Call
-`user_has_feature`, `get_folder_limit`, `get_space_limit`, `can_create_folder`, or
-`can_create_space` instead of comparing plan slugs elsewhere. Folder and space API
-creation locks the user row and checks the service inside a database transaction.
+Plan names and subscription states do not control feature access. The compatibility
+helpers in `subscriptions/services.py` use an authenticated-by-default policy and
+return unlimited folder and space access. Authentication, ownership checks, protected
+file delivery, and technical storage limits remain enforced independently.
 
 ## PayFast configuration
 
@@ -78,12 +79,12 @@ the MD5 digest is calculated. This is distinct from the checkout-form signature
 and the recurring API signature.
 
 Verified renewals extend the existing billing period. Overdue Basic subscriptions
-receive a three-day grace period before an automatic downgrade to Free. Sandbox
+receive a three-day grace period before the stored account plan moves to Free. Sandbox
 PayFast subscriptions can be cancelled from Profile: future debits stop after a
-confirmed PayFast API response, while Basic access remains until the current period
-ends. Cancellation and downgrade never delete productivity data; Free creation limits
-apply to any later folders or spaces. Refunds, plan switching, Pro checkout, live mode,
-and production configuration remain deliberately excluded.
+confirmed PayFast API response, while the Basic subscription remains current until
+the period ends. Cancellation and plan changes never delete productivity data or
+restrict product features. Refunds, plan switching, Pro checkout, live mode, and
+production configuration remain deliberately excluded.
 
 Authenticated users can review their plan and the ten most recent verified successful
 payments at `/subscriptions/billing/`. Billing is the subscription-management surface

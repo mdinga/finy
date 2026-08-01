@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import Folder, SpaceCategory, Space, Task, Subtask, Attachment, TimeLog, TaskNote
+from .models import (
+    Attachment,
+    Folder,
+    Space,
+    SpaceCategory,
+    Subtask,
+    Task,
+    TaskNote,
+    TimeLog,
+)
 
 @admin.register(Folder)
 class FolderAdmin(admin.ModelAdmin):
@@ -37,7 +46,15 @@ class TaskNoteAdmin(admin.ModelAdmin):
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
-    list_display = ("id", "task", "image", "created_at")
+    list_display = (
+        "id",
+        "task",
+        "original_filename",
+        "file_size",
+        "content_type",
+        "created_at",
+    )
+
 
 @admin.register(TimeLog)
 class TimeLogAdmin(admin.ModelAdmin):

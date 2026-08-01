@@ -36,21 +36,21 @@ class SubscriptionFoundationTests(TestCase):
     def test_entitlement_helpers_return_plan_features_and_limits(self):
         user = User.objects.create_user(username="features@example.com", password="password")
 
-        self.assertEqual(get_folder_limit(user), 5)
-        self.assertEqual(get_space_limit(user), 5)
-        self.assertFalse(user_has_feature(user, "email_capture"))
-        self.assertFalse(user_has_feature(user, "ai"))
-        self.assertFalse(user_has_feature(user, "unknown"))
+        self.assertIsNone(get_folder_limit(user))
+        self.assertIsNone(get_space_limit(user))
+        self.assertTrue(user_has_feature(user, "email_capture"))
+        self.assertTrue(user_has_feature(user, "ai"))
+        self.assertTrue(user_has_feature(user, "future_feature"))
 
         subscription = user.subscription
         subscription.plan = Plan.objects.get(slug="basic")
         subscription.status = Subscription.Status.ACTIVE
         subscription.save(update_fields=["plan", "status", "updated_at"])
 
-        self.assertEqual(get_folder_limit(user), 25)
-        self.assertEqual(get_space_limit(user), 15)
+        self.assertIsNone(get_folder_limit(user))
+        self.assertIsNone(get_space_limit(user))
         self.assertTrue(user_has_feature(user, "email_capture"))
-        self.assertFalse(user_has_feature(user, "ai"))
+        self.assertTrue(user_has_feature(user, "ai"))
 
         subscription.plan = Plan.objects.get(slug="pro")
         subscription.save(update_fields=["plan", "updated_at"])
@@ -60,8 +60,7 @@ class SubscriptionFoundationTests(TestCase):
         self.assertTrue(user_has_feature(user, "email_capture"))
         self.assertTrue(user_has_feature(user, "ai"))
 
-
-class PlanLimitAPITests(APITestCase):
+class UnrestrictedFeatureAccessAPITests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="limits@example.com", password="password")
         self.category, _ = SpaceCategory.objects.get_or_create(user=None, name="Limits")
@@ -89,62 +88,26 @@ class PlanLimitAPITests(APITestCase):
                 category=self.category,
             )
 
-    def test_free_user_cannot_exceed_five_folders_through_api(self):
-        self.assertTrue(Folder.objects.filter(user=self.user, is_inbox=True).exists())
+    def test_every_stored_plan_has_unlimited_folder_and_space_creation(self):
+        for index, slug in enumerate(("free", "basic", "pro")):
+            with self.subTest(plan=slug):
+                self.set_plan(slug)
+                self.fill_folders_to(30 + index)
+                self.fill_spaces_to(20 + index)
 
-        for index in range(5):
-            response = self.client.post(
-                reverse("api:folder-list"),
-                {"name": f"User folder {index}"},
-            )
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+                folder_response = self.client.post(
+                    reverse("api:folder-list"),
+                    {"name": f"{slug} folder"},
+                )
+                space_response = self.client.post(
+                    reverse("api:space-list"),
+                    {"name": f"{slug}_space", "category": self.category.pk},
+                )
 
-        self.assertFalse(can_create_folder(self.user))
-
-        response = self.client.post(reverse("api:folder-list"), {"name": "Too many"})
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Folder.objects.filter(user=self.user, is_inbox=False).count(), 5)
-        self.assertEqual(Folder.objects.filter(user=self.user).count(), 6)
-
-    def test_free_user_cannot_exceed_five_spaces_through_api(self):
-        self.assertTrue(Space.objects.filter(user=self.user, is_system=True).exists())
-
-        for index in range(5):
-            response = self.client.post(
-                reverse("api:space-list"),
-                {"name": f"user_space_{index}", "category": self.category.pk},
-            )
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-
-        self.assertFalse(can_create_space(self.user))
-
-        response = self.client.post(
-            reverse("api:space-list"),
-            {"name": "too_many", "category": self.category.pk},
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Space.objects.filter(user=self.user, is_system=False).count(), 5)
-        self.assertEqual(Space.objects.filter(user=self.user).count(), 6)
-
-    def test_basic_user_cannot_exceed_folder_and_space_limits(self):
-        self.set_plan("basic")
-        self.fill_folders_to(25)
-        self.fill_spaces_to(15)
-
-        folder_response = self.client.post(reverse("api:folder-list"), {"name": "Folder 26"})
-        space_response = self.client.post(
-            reverse("api:space-list"),
-            {"name": "space_16", "category": self.category.pk},
-        )
-
-        self.assertEqual(folder_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(space_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Folder.objects.filter(user=self.user, is_inbox=False).count(), 25)
-        self.assertEqual(Space.objects.filter(user=self.user, is_system=False).count(), 15)
-        self.assertEqual(Folder.objects.filter(user=self.user).count(), 26)
-        self.assertEqual(Space.objects.filter(user=self.user).count(), 16)
+                self.assertEqual(folder_response.status_code, status.HTTP_201_CREATED)
+                self.assertEqual(space_response.status_code, status.HTTP_201_CREATED)
+                self.assertTrue(can_create_folder(self.user))
+                self.assertTrue(can_create_space(self.user))
 
     def test_pro_user_has_unlimited_folders_and_spaces(self):
         self.set_plan("pro")

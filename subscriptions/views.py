@@ -99,7 +99,7 @@ def subscription_cancel(request):
         messages.success(
             request,
             "Your subscription has been cancelled with PayFast. "
-            f"Basic access remains available until {access_until}.",
+            f"Your Basic subscription remains current until {access_until}.",
         )
     return redirect("journeys:profile")
 
